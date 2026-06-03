@@ -1,10 +1,12 @@
 # PV Forecast Planner
 
 <p align="center">
-  <img src="assets/logo.svg" alt="PV Forecast Planner logo" width="160">
+  <img src="assets/logo.svg" alt="PV Forecast Planner logo" width="300">
 </p>
 
 Home Assistant custom integration that loads a trained XGBoost PV model, fetches Open-Meteo forecast data, and exposes `sensor.pv_forecast_power`.
+
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=wolpa29&repository=homeassistant-pv-forecast-planner&category=integration)
 
 The sensor state is the predicted PV power for the current 15-minute slot in watts; the full future forecast is available in the `forecast` attribute. The `forecast` attribute is replaced whenever a new forecast is calculated.
 
