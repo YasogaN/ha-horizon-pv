@@ -7,13 +7,14 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 
 from .const import DOMAIN, SERVICE_UPDATE_FORECAST
-from .coordinator import PvForecastCoordinator
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up PV Forecast Planner from a config entry."""
+    from .coordinator import PvForecastCoordinator
+
     coordinator = PvForecastCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
 

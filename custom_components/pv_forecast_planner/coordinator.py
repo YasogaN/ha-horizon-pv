@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import partial
 import logging
+from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -21,12 +22,14 @@ from .const import (
     CONF_TIMEZONE,
     DOMAIN,
 )
-from .pv.forecast import PvForecastConfig, PvForecastResult, create_pv_forecast
+
+if TYPE_CHECKING:
+    from .pv.forecast import PvForecastResult
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class PvForecastCoordinator(DataUpdateCoordinator[PvForecastResult]):
+class PvForecastCoordinator(DataUpdateCoordinator):
     """Coordinate PV forecast refreshes."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -40,6 +43,8 @@ class PvForecastCoordinator(DataUpdateCoordinator[PvForecastResult]):
 
     async def _async_update_data(self) -> PvForecastResult:
         """Fetch the latest PV forecast."""
+        from .pv.forecast import PvForecastConfig, create_pv_forecast
+
         config = PvForecastConfig(
             model_dir=self.entry.data[CONF_MODEL_DIR],
             latitude=float(self.entry.data[CONF_LATITUDE]),

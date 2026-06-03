@@ -31,9 +31,9 @@ class PvForecastModel:
         if not model_path.exists():
             raise FileNotFoundError(f"XGBoost model missing in {self.model_dir}")
 
-        from xgboost import XGBRegressor
+        from xgboost import Booster
 
-        model = XGBRegressor()
+        model = Booster()
         model.load_model(model_path)
         self.model = model
 
@@ -42,7 +42,9 @@ class PvForecastModel:
         if self.model is None or self.metadata is None:
             self.load()
 
-        predictions = self.model.predict(feature_matrix)
+        from xgboost import DMatrix
+
+        predictions = self.model.predict(DMatrix(feature_matrix))
         return [max(0.0, float(value)) for value in predictions]
 
     @property
