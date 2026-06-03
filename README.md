@@ -57,6 +57,17 @@ action:
 mode: single
 ```
 
+## Local smoke test
+
+Optional local test setup:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python3 custom_components/pv_forecast_planner/tests.py
+```
+
 ## Files
 
 `__init__.py` sets up the integration and registers the update service.

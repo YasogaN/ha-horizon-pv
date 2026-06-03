@@ -6,14 +6,23 @@ python3 custom_components/pv_forecast_planner/tests.py
 
 from __future__ import annotations
 
+from datetime import datetime
 import json
 from pathlib import Path
 import sys
+import types
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MODEL_DIR = REPO_ROOT / "implementationRaw" / "models" / "pv_forecast_xgboost"
 COMPONENT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(COMPONENT_DIR / "pv"))
+
+package_name = "custom_components.pv_forecast_planner"
+custom_components = types.ModuleType("custom_components")
+package = types.ModuleType(package_name)
+package.__path__ = [str(COMPONENT_DIR)]
+sys.modules.setdefault("custom_components", custom_components)
+sys.modules.setdefault(package_name, package)
 
 LATITUDE = 48.2082
 LONGITUDE = 16.3738
@@ -22,6 +31,10 @@ PANEL_AZIMUTH_DEG = 350.0
 PANEL_TILT_DEG = 45.0
 
 from features import build_feature_matrix, build_feature_rows  # noqa: E402
+from custom_components.pv_forecast_planner.pv.forecast import (  # noqa: E402
+    PvForecastConfig,
+    create_pv_forecast,
+)
 from weather import fetch_open_meteo_forecast  # noqa: E402
 
 
@@ -65,6 +78,31 @@ def main() -> None:
     print(f"feature columns: {len(matrix[0])}")
     print(f"first timestamp: {rows[0]['_timestamp']}")
     print(f"last timestamp: {rows[-1]['_timestamp']}")
+
+    try:
+        import xgboost  # noqa: F401
+    except ModuleNotFoundError:
+        print("forecast skipped: xgboost is not installed locally")
+        return
+
+    result = create_pv_forecast(
+        PvForecastConfig(
+            model_dir=MODEL_DIR,
+            latitude=LATITUDE,
+            longitude=LONGITUDE,
+            timezone=TIMEZONE,
+            panel_azimuth_deg=PANEL_AZIMUTH_DEG,
+            panel_tilt_deg=PANEL_TILT_DEG,
+            forecast_days=1,
+            secondary_forecast_model="icon_eu",
+        ),
+        now=datetime.now(),
+    )
+
+    print(f"forecast current slot: {result.current_slot}")
+    print(f"forecast current power W: {round(result.current_power_w, 1)}")
+    print(f"forecast points: {len(result.forecast_points)}")
+    print(f"forecast total energy kWh: {round(result.total_energy_kwh, 3)}")
 
 
 if __name__ == "__main__":
