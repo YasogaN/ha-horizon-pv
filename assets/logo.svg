@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
   <title id="title">PV Forecast Planner logo</title>
   <desc id="desc">Modern PV forecast mark with actual and predicted generation curves.</desc>
 
@@ -16,7 +16,7 @@
   <circle cx="378" cy="132" r="48" fill="none" stroke="#facc15" stroke-width="10" opacity=".12"/>
 
   <path
-    d="M108 356C140 350 156 292 183 241C207 197 231 176 256 176C281 176 305 197 329 241C356 292 372 350 404 356"
+    d="M108 356C140 350 156 292 183 241C207 197 231 176 256 176"
     fill="none"
     stroke="#38bdf8"
     stroke-width="16"
