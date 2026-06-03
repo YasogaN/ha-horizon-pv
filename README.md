@@ -1,2 +1,80 @@
-# pv-generation-forecasting
-Machine learning model and data scraper to forecast photovoltaic solar power generation
+# PV Forecast Planner
+
+![PV Forecast Planner logo](assets/logo.svg)
+
+Home Assistant custom integration that loads a trained XGBoost PV model, fetches Open-Meteo forecast data, and exposes `sensor.pv_forecast_power`.
+
+The sensor state is the predicted PV power for the current 15-minute slot in watts; the full future forecast is available in the `forecast` attribute. The `forecast` attribute is replaced whenever a new forecast is calculated.
+
+## Installation
+
+Install with HACS as a custom repository, or copy this folder to:
+
+```text
+/config/custom_components/pv_forecast_planner/
+```
+
+Restart Home Assistant and add the integration from:
+
+```text
+Settings -> Devices & services -> Add integration -> PV Forecast Planner
+```
+
+## Model
+
+Place your trained model files outside `custom_components`, for example:
+
+```text
+/config/pv_forecast_planner/models/default/model.json
+/config/pv_forecast_planner/models/default/features.json
+```
+
+Use this path during setup:
+
+```text
+/config/pv_forecast_planner/models/default
+```
+
+## Configuration
+
+Setup asks for the model directory, latitude, longitude, timezone, panel azimuth, panel tilt, forecast days, and secondary Open-Meteo model such as `icon_eu`.
+
+## Automation
+
+The forecast is calculated once when Home Assistant loads the integration; call this service from an automation to update it later:
+
+```yaml
+alias: Update PV forecast every morning
+trigger:
+  - platform: time
+    at: "06:00:00"
+action:
+  - service: pv_forecast_planner.update_forecast
+mode: single
+```
+
+## Files
+
+`__init__.py` sets up the integration and registers the update service.
+
+`config_flow.py` defines the UI setup fields.
+
+`coordinator.py` runs forecast updates.
+
+`sensor.py` exposes `sensor.pv_forecast_power`.
+
+`services.yaml` defines `pv_forecast_planner.update_forecast`.
+
+`pv/weather.py` fetches Open-Meteo data.
+
+`pv/model.py` loads the XGBoost model and metadata.
+
+`pv/physical_model.py` calculates solar helper values.
+
+`pv/features.py` builds the model feature matrix.
+
+`pv/forecast.py` combines weather, features, and model prediction.
+
+## License
+
+MIT License. See `LICENSE`.

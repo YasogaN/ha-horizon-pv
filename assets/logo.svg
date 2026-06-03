@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">PV Forecast Planner logo</title>
+  <desc id="desc">Modern PV forecast mark with actual and predicted generation curves.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="96" y1="64" x2="416" y2="448" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#102a3a"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <path d="M108 384h296" stroke="#475569" stroke-width="10" stroke-linecap="round" opacity=".55"/>
+
+  <circle cx="378" cy="132" r="28" fill="#facc15"/>
+  <circle cx="378" cy="132" r="48" fill="none" stroke="#facc15" stroke-width="10" opacity=".12"/>
+
+  <path
+    d="M108 356C140 350 156 292 183 241C207 197 231 176 256 176C281 176 305 197 329 241C356 292 372 350 404 356"
+    fill="none"
+    stroke="#38bdf8"
+    stroke-width="16"
+    stroke-linecap="round"
+  />
+
+  <path
+    d="M248 177C277 172 304 195 329 241C356 292 372 350 404 356"
+    fill="none"
+    stroke="#38bdf8"
+    stroke-width="16"
+    stroke-linecap="round"
+    stroke-dasharray="16 20"
+  />
+
+  <path
+    d="M108 356C140 350 156 292 183 241C201 208 219 188 240 179"
+    fill="none"
+    stroke="#facc15"
+    stroke-width="16"
+    stroke-linecap="round"
+  />
+</svg>

@@ -1,0 +1,32 @@
+{
+  "title": "PV Forecast Planner",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up PV Forecast Planner",
+        "description": "Configure the trained model and PV system location.",
+        "data": {
+          "name": "Name",
+          "model_dir": "Model directory",
+          "latitude": "Latitude",
+          "longitude": "Longitude",
+          "timezone": "Timezone",
+          "panel_azimuth_deg": "Panel azimuth",
+          "panel_tilt_deg": "Panel tilt",
+          "forecast_days": "Forecast days",
+          "secondary_forecast_model": "Secondary Open-Meteo model"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "PV Forecast Planner is already configured"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "forecast_power": {
+        "name": "Forecast power"
+      }
+    }
+  }
+}

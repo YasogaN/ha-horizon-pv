@@ -1,0 +1,14 @@
+{
+  "domain": "pv_forecast_planner",
+  "name": "PV Forecast Planner",
+  "after_dependencies": [],
+  "codeowners": ["@wolpa29"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/wolpa29/homeassistant-pv-forecast-planner",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/wolpa29/homeassistant-pv-forecast-planner/issues",
+  "requirements": ["xgboost==3.2.0"],
+  "version": "0.0.1"
+}
