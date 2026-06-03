@@ -1,6 +1,8 @@
 # PV Forecast Planner
 
-![PV Forecast Planner logo](assets/logo.svg)
+<p align="center">
+  <img src="assets/logo.svg" alt="PV Forecast Planner logo" width="160">
+</p>
 
 Home Assistant custom integration that loads a trained XGBoost PV model, fetches Open-Meteo forecast data, and exposes `sensor.pv_forecast_power`.
 
