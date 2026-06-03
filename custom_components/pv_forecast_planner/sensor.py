@@ -49,14 +49,18 @@ class PvForecastPowerSensor(CoordinatorEntity[PvForecastCoordinator], SensorEnti
         }
 
     @property
-    def native_value(self) -> float:
+    def native_value(self) -> float | None:
         """Return the current forecast power in watts."""
+        if self.coordinator.data is None:
+            return None
         return round(self.coordinator.data.current_power_w, 1)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return forecast metadata and future time series."""
         data = self.coordinator.data
+        if data is None:
+            return {}
         return {
             "generated_at": data.generated_at.isoformat(),
             "current_slot": data.current_slot.isoformat(),

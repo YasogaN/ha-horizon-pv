@@ -4,7 +4,7 @@
   <img src="assets/logo.svg" alt="PV Forecast Planner logo" width="300">
 </p>
 
-Home Assistant custom integration that loads a trained XGBoost PV model, fetches Open-Meteo forecast data, and exposes `sensor.pv_forecast_power`.
+Home Assistant custom integration that uses a trained XGBoost PV model, fetches Open-Meteo forecast data, and exposes `sensor.pv_forecast_power`.
 
 [![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=wolpa29&repository=homeassistant-pv-forecast-planner&category=integration)
 
@@ -45,7 +45,7 @@ Setup asks for the model directory, latitude, longitude, timezone, panel azimuth
 
 ## Automation
 
-The forecast is calculated once when Home Assistant loads the integration; call this service from an automation to update it later:
+Call this service from an automation to calculate or replace the forecast:
 
 ```yaml
 alias: Update PV forecast every morning
