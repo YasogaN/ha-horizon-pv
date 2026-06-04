@@ -95,9 +95,9 @@ For local experiments, `PvForecastModel(..., backend="xgboost")` can use the opt
 
 `services.yaml` defines `pv_forecast_planner.update_forecast`.
 
-Root `brand/` contains the HACS repository icon and logo files.
+Root `brand/` contains the HACS repository brand icons.
 
-`custom_components/pv_forecast_planner/brand/` contains the Home Assistant icon and logo files.
+`custom_components/pv_forecast_planner/brand/` contains the Home Assistant brand icons.
 
 `pv/weather.py` fetches Open-Meteo data.
 
