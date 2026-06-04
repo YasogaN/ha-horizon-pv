@@ -109,7 +109,7 @@ class PvForecastCoordinator(DataUpdateCoordinator):
         if data is None or not data.forecast_points:
             return False
 
-        current_time = (now or dt_util.now()).replace(
+        current_time = dt_util.as_local(now or dt_util.now()).replace(
             tzinfo=None,
             second=0,
             microsecond=0,
@@ -117,6 +117,13 @@ class PvForecastCoordinator(DataUpdateCoordinator):
         first_point = data.forecast_points[0]
         last_point = data.forecast_points[-1]
         if current_time < first_point.timestamp:
+            _LOGGER.debug(
+                "PV forecast current value is before first forecast point: "
+                "current_time=%s, first_point=%s, generated_at=%s",
+                current_time,
+                first_point.timestamp,
+                data.generated_at,
+            )
             current_time = first_point.timestamp
             current_power_w = first_point.pv_power_w
             safe_current_power_w = first_point.safe_pv_power_w
