@@ -2,27 +2,38 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from pathlib import Path
-import sys
 from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
-VENDOR_DIR = Path(__file__).resolve().parents[1] / "vendor"
+BACKEND_PYTHON = "python"
+BACKEND_XGBOOST = "xgboost"
+SUPPORTED_BACKENDS = {BACKEND_PYTHON, BACKEND_XGBOOST}
 
 
 class PvForecastModel:
-    def __init__(self, model_dir: str | Path):
+    def __init__(self, model_dir: str | Path, *, backend: str = BACKEND_PYTHON):
         self.model_dir = Path(model_dir)
-        self.model: Any | None = None
+        if backend not in SUPPORTED_BACKENDS:
+            raise ValueError(f"Unsupported model backend: {backend}")
+        self.backend = backend
+        self.model: PurePythonXGBoostModel | XGBoostRuntimeModel | None = None
         self.metadata: dict[str, Any] | None = None
 
     def load(self) -> None:
         """Load model.json and features.json from the configured model directory."""
-        _LOGGER.info("Loading PV forecast model from %s", self.model_dir)
+        _LOGGER.info(
+            "Loading PV forecast model from %s with backend=%s",
+            self.model_dir,
+            self.backend,
+        )
         self.load_metadata()
         self.load_model()
         _LOGGER.info(
-            "PV forecast model loaded: features=%s, observed_peak_w=%s, safe_factor=%s",
+            "PV forecast model loaded: backend=%s, features=%s, observed_peak_w=%s, "
+            "safe_factor=%s",
+            self.backend,
             len(self.feature_columns),
             self.observed_peak_w,
             self.safe_prediction_factor,
@@ -44,22 +55,25 @@ class PvForecastModel:
         if not model_path.exists():
             raise FileNotFoundError(f"XGBoost model missing in {self.model_dir}")
 
-        Booster = _import_booster()
+        if self.backend == BACKEND_XGBOOST:
+            self.model = XGBoostRuntimeModel.from_file(model_path)
+            _LOGGER.debug("Loaded XGBoost runtime model from %s", model_path)
+            return
 
-        model = Booster()
-        model.load_model(model_path)
-        self.model = model
-        _LOGGER.debug("Loaded XGBoost model from %s", model_path)
+        self.model = PurePythonXGBoostModel.from_file(model_path)
+        _LOGGER.debug("Loaded pure Python model from %s", model_path)
 
     def predict(self, feature_matrix: list[list[float]]) -> list[float]:
         """Predict PV power in watts for the given feature matrix."""
         if self.model is None or self.metadata is None:
             self.load()
 
-        DMatrix = _import_dmatrix()
-
-        _LOGGER.debug("Running PV model prediction for %s rows", len(feature_matrix))
-        predictions = self.model.predict(DMatrix(feature_matrix))
+        _LOGGER.debug(
+            "Running model prediction for %s rows with backend=%s",
+            len(feature_matrix),
+            self.backend,
+        )
+        predictions = self.model.predict(feature_matrix)
         return [max(0.0, float(value)) for value in predictions]
 
     @property
@@ -82,48 +96,101 @@ class PvForecastModel:
         return float(self.metadata.get("safe_prediction_factor", 0.9))
 
 
-def _prepare_vendor_import() -> None:
-    """Add bundled Python packages to sys.path if they are present."""
-    if VENDOR_DIR.exists() and str(VENDOR_DIR) not in sys.path:
-        sys.path.insert(0, str(VENDOR_DIR))
-        _LOGGER.info("Using bundled Python packages from %s", VENDOR_DIR)
+class PurePythonXGBoostModel:
+    """Small XGBoost JSON predictor for gbtree regression models."""
+
+    def __init__(self, base_score: float, trees: list[dict[str, list[Any]]]) -> None:
+        self.base_score = base_score
+        self.trees = trees
+
+    @classmethod
+    def from_file(cls, model_path: str | Path) -> PurePythonXGBoostModel:
+        """Load a supported XGBoost JSON model."""
+        with Path(model_path).open("r", encoding="utf-8") as file:
+            model = json.load(file)
+
+        learner = model["learner"]
+        objective = learner["objective"]["name"]
+        if objective != "reg:squarederror":
+            raise ValueError(f"Unsupported XGBoost objective: {objective}")
+
+        booster = learner["gradient_booster"]
+        if booster["name"] != "gbtree":
+            raise ValueError(f"Unsupported XGBoost booster: {booster['name']}")
+
+        base_score = _parse_base_score(learner["learner_model_param"]["base_score"])
+        trees = booster["model"]["trees"]
+        for tree in trees:
+            if any(split_type != 0 for split_type in tree.get("split_type", [])):
+                raise ValueError("Categorical XGBoost splits are not supported")
+        return cls(base_score, trees)
+
+    def predict(self, feature_matrix: list[list[float]]) -> list[float]:
+        """Predict one value per feature row."""
+        return [self.predict_row(row) for row in feature_matrix]
+
+    def predict_row(self, features: list[float]) -> float:
+        """Predict one feature row."""
+        prediction = self.base_score
+        for tree in self.trees:
+            prediction += _predict_tree(tree, features)
+        return prediction
 
 
-def _import_booster() -> Any:
-    """Import XGBoost Booster from the runtime or bundled vendor package."""
-    try:
-        from xgboost import Booster
+class XGBoostRuntimeModel:
+    """Thin wrapper around the optional xgboost package for local use."""
 
-        return Booster
-    except ImportError as first_error:
-        _prepare_vendor_import()
+    def __init__(self, model: Any, dmatrix_cls: Any) -> None:
+        self.model = model
+        self.dmatrix_cls = dmatrix_cls
+
+    @classmethod
+    def from_file(cls, model_path: str | Path) -> XGBoostRuntimeModel:
+        """Load an XGBoost model with the optional xgboost package."""
         try:
-            from xgboost import Booster
-
-            return Booster
-        except ImportError as second_error:
+            from xgboost import Booster, DMatrix
+        except ImportError as err:
             raise ImportError(
-                "Could not import xgboost. The integration tried the Home Assistant "
-                "runtime and the bundled vendor package. Missing dependency: "
-                f"{second_error}"
-            ) from first_error
+                "The xgboost backend requires the optional xgboost package. "
+                "Use backend='python' or install xgboost locally."
+            ) from err
+
+        model = Booster()
+        model.load_model(model_path)
+        return cls(model, DMatrix)
+
+    def predict(self, feature_matrix: list[list[float]]) -> list[float]:
+        """Predict one value per feature row."""
+        return [float(value) for value in self.model.predict(self.dmatrix_cls(feature_matrix))]
 
 
-def _import_dmatrix() -> Any:
-    """Import XGBoost DMatrix from the runtime or bundled vendor package."""
-    try:
-        from xgboost import DMatrix
+def _predict_tree(tree: dict[str, list[Any]], features: list[float]) -> float:
+    """Walk one XGBoost tree and return the leaf value."""
+    left_children = tree["left_children"]
+    right_children = tree["right_children"]
+    default_left = tree["default_left"]
+    split_indices = tree["split_indices"]
+    split_conditions = tree["split_conditions"]
 
-        return DMatrix
-    except ImportError as first_error:
-        _prepare_vendor_import()
-        try:
-            from xgboost import DMatrix
+    node = 0
+    while left_children[node] != -1:
+        feature_index = split_indices[node]
+        split_value = split_conditions[node]
+        feature_value = features[feature_index]
 
-            return DMatrix
-        except ImportError as second_error:
-            raise ImportError(
-                "Could not import xgboost. The integration tried the Home Assistant "
-                "runtime and the bundled vendor package. Missing dependency: "
-                f"{second_error}"
-            ) from first_error
+        if feature_value is None or math.isnan(feature_value):
+            go_left = bool(default_left[node])
+        else:
+            go_left = feature_value < split_value
+
+        node = left_children[node] if go_left else right_children[node]
+
+    return float(split_conditions[node])
+
+
+def _parse_base_score(value: str) -> float:
+    """Parse XGBoost's JSON base score field."""
+    text = str(value).strip()
+    if text.startswith("[") and text.endswith("]"):
+        text = text[1:-1]
+    return float(text)

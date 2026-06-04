@@ -4,7 +4,7 @@
   <img src="assets/logo.png" alt="PV Forecast Planner logo" width="300">
 </p>
 
-Home Assistant custom integration that uses a trained XGBoost PV model, fetches Open-Meteo forecast data, and exposes `sensor.pv_forecast_power`.
+Home Assistant custom integration that reads a trained XGBoost JSON model with a pure Python predictor, fetches Open-Meteo forecast data, and exposes `sensor.pv_forecast_power`.
 
 [![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=wolpa29&repository=homeassistant-pv-forecast-planner&category=integration)
 
@@ -80,8 +80,8 @@ pip install -r requirements.txt
 python3 custom_components/pv_forecast_planner/tests.py
 ```
 
-The integration bundles the XGBoost CPU runtime for inference experiments.
-The local `requirements.txt` is only needed for manual smoke tests.
+The integration does not require XGBoost to be installed in Home Assistant.
+For local experiments, `PvForecastModel(..., backend="xgboost")` can use the optional XGBoost package.
 
 ## Files
 
@@ -95,13 +95,13 @@ The local `requirements.txt` is only needed for manual smoke tests.
 
 `services.yaml` defines `pv_forecast_planner.update_forecast`.
 
-`brand/` contains the Home Assistant icon and logo files.
+Root `brand/` contains the HACS repository icon and logo files.
 
-`vendor/` contains bundled runtime files used by the model loader.
+`custom_components/pv_forecast_planner/brand/` contains the Home Assistant icon and logo files.
 
 `pv/weather.py` fetches Open-Meteo data.
 
-`pv/model.py` loads the XGBoost model and metadata.
+`pv/model.py` loads the XGBoost JSON model and predicts with pure Python.
 
 `pv/physical_model.py` calculates solar helper values.
 

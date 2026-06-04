@@ -35,6 +35,7 @@ from custom_components.pv_forecast_planner.pv.forecast import (  # noqa: E402
     PvForecastConfig,
     create_pv_forecast,
 )
+from custom_components.pv_forecast_planner.pv.model import PvForecastModel  # noqa: E402
 from weather import fetch_open_meteo_forecast  # noqa: E402
 
 
@@ -78,12 +79,7 @@ def main() -> None:
     print(f"feature columns: {len(matrix[0])}")
     print(f"first timestamp: {rows[0]['_timestamp']}")
     print(f"last timestamp: {rows[-1]['_timestamp']}")
-
-    try:
-        import xgboost  # noqa: F401
-    except ModuleNotFoundError:
-        print("forecast skipped: xgboost is not installed locally")
-        return
+    compare_model_backends(matrix[:3])
 
     result = create_pv_forecast(
         PvForecastConfig(
@@ -103,6 +99,25 @@ def main() -> None:
     print(f"forecast current power W: {round(result.current_power_w, 1)}")
     print(f"forecast points: {len(result.forecast_points)}")
     print(f"forecast total energy kWh: {round(result.total_energy_kwh, 3)}")
+
+
+def compare_model_backends(sample_matrix: list[list[float]]) -> None:
+    """Compare pure Python and optional XGBoost backend when xgboost is installed."""
+    python_model = PvForecastModel(MODEL_DIR)
+    python_predictions = python_model.predict(sample_matrix)
+
+    try:
+        xgboost_model = PvForecastModel(MODEL_DIR, backend="xgboost")
+        xgboost_predictions = xgboost_model.predict(sample_matrix)
+    except ImportError:
+        print("xgboost backend comparison skipped: xgboost is not installed locally")
+        return
+
+    max_diff = max(
+        abs(python_value - xgboost_value)
+        for python_value, xgboost_value in zip(python_predictions, xgboost_predictions)
+    )
+    print(f"xgboost backend max diff W: {max_diff:.6f}")
 
 
 if __name__ == "__main__":

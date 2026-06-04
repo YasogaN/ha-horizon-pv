@@ -156,6 +156,6 @@ def floor_to_interval(value: datetime, interval_minutes: int) -> datetime:
 
 
 @lru_cache(maxsize=4)
-def get_model(model_dir: str) -> PvForecastModel:
+def get_model(model_dir: str, backend: str = "python") -> PvForecastModel:
     """Return a cached model wrapper for a model directory."""
-    return PvForecastModel(model_dir)
+    return PvForecastModel(model_dir, backend=backend)
