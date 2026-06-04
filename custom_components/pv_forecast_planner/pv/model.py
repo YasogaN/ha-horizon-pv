@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
+import sys
 from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
+VENDOR_DIR = Path(__file__).resolve().parents[1] / "vendor"
 
 
 class PvForecastModel:
@@ -42,7 +44,7 @@ class PvForecastModel:
         if not model_path.exists():
             raise FileNotFoundError(f"XGBoost model missing in {self.model_dir}")
 
-        from xgboost import Booster
+        Booster = _import_booster()
 
         model = Booster()
         model.load_model(model_path)
@@ -54,7 +56,7 @@ class PvForecastModel:
         if self.model is None or self.metadata is None:
             self.load()
 
-        from xgboost import DMatrix
+        DMatrix = _import_dmatrix()
 
         _LOGGER.debug("Running PV model prediction for %s rows", len(feature_matrix))
         predictions = self.model.predict(DMatrix(feature_matrix))
@@ -78,3 +80,50 @@ class PvForecastModel:
         if self.metadata is None:
             self.load_metadata()
         return float(self.metadata.get("safe_prediction_factor", 0.9))
+
+
+def _prepare_vendor_import() -> None:
+    """Add bundled Python packages to sys.path if they are present."""
+    if VENDOR_DIR.exists() and str(VENDOR_DIR) not in sys.path:
+        sys.path.insert(0, str(VENDOR_DIR))
+        _LOGGER.info("Using bundled Python packages from %s", VENDOR_DIR)
+
+
+def _import_booster() -> Any:
+    """Import XGBoost Booster from the runtime or bundled vendor package."""
+    try:
+        from xgboost import Booster
+
+        return Booster
+    except ImportError as first_error:
+        _prepare_vendor_import()
+        try:
+            from xgboost import Booster
+
+            return Booster
+        except ImportError as second_error:
+            raise ImportError(
+                "Could not import xgboost. The integration tried the Home Assistant "
+                "runtime and the bundled vendor package. Missing dependency: "
+                f"{second_error}"
+            ) from first_error
+
+
+def _import_dmatrix() -> Any:
+    """Import XGBoost DMatrix from the runtime or bundled vendor package."""
+    try:
+        from xgboost import DMatrix
+
+        return DMatrix
+    except ImportError as first_error:
+        _prepare_vendor_import()
+        try:
+            from xgboost import DMatrix
+
+            return DMatrix
+        except ImportError as second_error:
+            raise ImportError(
+                "Could not import xgboost. The integration tried the Home Assistant "
+                "runtime and the bundled vendor package. Missing dependency: "
+                f"{second_error}"
+            ) from first_error

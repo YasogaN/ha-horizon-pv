@@ -80,6 +80,9 @@ pip install -r requirements.txt
 python3 custom_components/pv_forecast_planner/tests.py
 ```
 
+The integration bundles the XGBoost CPU runtime for inference experiments.
+The local `requirements.txt` is only needed for manual smoke tests.
+
 ## Files
 
 `__init__.py` sets up the integration and registers the update service.
@@ -93,6 +96,8 @@ python3 custom_components/pv_forecast_planner/tests.py
 `services.yaml` defines `pv_forecast_planner.update_forecast`.
 
 `brand/` contains the Home Assistant icon and logo files.
+
+`vendor/` contains bundled runtime files used by the model loader.
 
 `pv/weather.py` fetches Open-Meteo data.
 
