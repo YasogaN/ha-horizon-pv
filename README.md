@@ -8,7 +8,7 @@ Home Assistant custom integration that reads a trained XGBoost JSON model with a
 
 [![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=wolpa29&repository=homeassistant-pv-forecast-planner&category=integration)
 
-The main sensor state is the predicted PV power for the current 15-minute slot in watts. A second sensor exposes the current safe forecast power. The full future forecast is available as compact rows in the main sensor's `forecast` attribute and is replaced whenever a new forecast is calculated.
+The main sensor state is the predicted PV power for the current 15-minute slot in watts. A second sensor exposes the current safe forecast power. Each sensor has its own compact `forecast` attribute and it is replaced whenever a new forecast is calculated.
 
 Entities:
 
@@ -20,9 +20,15 @@ sensor.pv_forecast_planner_safe_forecast_power
 Forecast attribute format:
 
 ```text
-forecast_format: ["datetime", "pv_power_w", "safe_pv_power_w"]
+sensor.pv_forecast_planner_forecast_power
+forecast_format: ["datetime", "pv_power_w"]
 forecast:
-  - ["2026-06-04T12:30:00", 6394.9, 5755.4]
+  - ["2026-06-04T12:30:00", 6394.9]
+
+sensor.pv_forecast_planner_safe_forecast_power
+forecast_format: ["datetime", "safe_pv_power_w"]
+forecast:
+  - ["2026-06-04T12:30:00", 5755.4]
 ```
 
 ## Installation
@@ -121,9 +127,8 @@ series:
     color: "#7fbfff"
     stroke_width: 2
     data_generator: |
-      const forecast = hass.states["sensor.pv_forecast_planner_forecast_power"].attributes.forecast;
-      return forecast.map((row) => {
-        return [new Date(row[0]).getTime(), row[2]];
+      return entity.attributes.forecast.map((row) => {
+        return [new Date(row[0]).getTime(), row[1]];
       });
 
 ```
