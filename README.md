@@ -19,6 +19,7 @@ Entities:
 ```text
 sensor.pv_forecast_planner_forecast_power
 sensor.pv_forecast_planner_safe_forecast_power
+sensor.pv_forecast_planner_load_plan
 ```
 
 Forecast attribute format:
@@ -86,6 +87,19 @@ mode: single
 
 Temporary Open-Meteo gateway or timeout errors are retried automatically before the update fails.
 
+For basic load planning, copy `examples/loads.yaml` to `/config/pv_forecast_planner/loads.yaml`.
+The planner uses the stored safe forecast from now until the last forecast point.
+Each load needs `total_minutes`, `min_run_minutes`, `power_w`, `earliest_start`, and `latest_end`.
+The possible number of starts is derived from `total_minutes` and `min_run_minutes`.
+`sensor.pv_forecast_planner_load_plan` exposes planned load blocks in `plan` and concrete switching events in `events`.
+Each event contains `time`, `device`, `action`, and optional `entity_id` or `script`.
+
+```yaml
+action:
+  - service: pv_forecast_planner.update_forecast
+  - service: pv_forecast_planner.update_load_plan
+```
+
 ## Dashboard
 
 To use the attributes of the forecast data you can use an apexchart which displays also the current pv generation:
@@ -136,6 +150,14 @@ series:
       return entity.attributes.forecast.map((row) => {
         return [new Date(row[0]).getTime(), row[1]];
       });
+  - entity: sensor.pv_forecast_planner_load_plan
+    name: Planned Load
+    type: column
+    color: "#ff9f43"
+    data_generator: |
+      return (entity.attributes.planned_load || []).map((row) => {
+        return [new Date(row[0]).getTime(), row[1]];
+      });
 
 ```
 
@@ -173,7 +195,7 @@ For local experiments, `PvForecastModel(..., backend="xgboost")` can use the opt
 
 `sensor.py` exposes the forecast power and safe forecast power sensors.
 
-`services.yaml` defines `pv_forecast_planner.update_forecast`.
+`services.yaml` defines `pv_forecast_planner.update_forecast` and `pv_forecast_planner.update_load_plan`.
 
 Root `brand/` contains the HACS repository brand icons.
 
@@ -190,6 +212,71 @@ Root `brand/` contains the HACS repository brand icons.
 `pv/features.py` builds the model feature matrix.
 
 `pv/forecast.py` combines weather, features, and model prediction.
+
+## Load Planner
+
+Create this file:
+
+```text
+/config/pv_forecast_planner/loads.yaml
+```
+
+Minimal example:
+
+```yaml
+base_load_w: 500
+
+loads:
+  - name: Dishwasher
+    entity_id: switch.dishwasher
+    power_w: 1200
+    total_minutes: 90
+    min_run_minutes: 90
+    earliest_start: "09:00"
+    latest_end: "18:00"
+    priority: 1
+```
+
+Run forecast and load planning:
+
+```yaml
+action:
+  - service: pv_forecast_planner.update_forecast
+  - service: pv_forecast_planner.update_load_plan
+```
+
+The planner uses the safe PV forecast, subtracts `base_load_w`, and places the loads where they fit best under the safe forecast curve. The output is available on `sensor.pv_forecast_planner_load_plan`:
+
+```text
+plan: planned load blocks
+events: turn_on / turn_off events with time, device, entity_id and optional script
+planned_load: 15-minute load curve for charts
+```
+
+For automation, trigger every minute and execute due events from the `events` attribute. If an event has a script, call `script.turn_on`; otherwise call `homeassistant.turn_on` or `homeassistant.turn_off` for the configured `entity_id`.
+
+Example for one device:
+
+```yaml
+alias: Dishwasher load plan on
+trigger:
+  - platform: time_pattern
+    minutes: "/1"
+condition:
+  - condition: template
+    value_template: >
+      {% set minute = now().strftime('%Y-%m-%dT%H:%M') %}
+      {{ (state_attr('sensor.pv_forecast_planner_load_plan', 'events') or [])
+        | selectattr('device', 'eq', 'Dishwasher')
+        | selectattr('action', 'eq', 'turn_on')
+        | selectattr('time', 'match', '^' ~ minute)
+        | list | count > 0 }}
+action:
+  - service: switch.turn_on
+    target:
+      entity_id: switch.dishwasher
+mode: single
+```
 
 ## License
 

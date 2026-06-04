@@ -32,6 +32,7 @@ from .const import (
 )
 
 if TYPE_CHECKING:
+    from .load_planner import LoadPlanResult
     from .pv.forecast import PvForecastResult
 
 _LOGGER = logging.getLogger(__name__)
@@ -48,6 +49,8 @@ class PvForecastCoordinator(DataUpdateCoordinator):
         self.cache_path = Path(
             hass.config.path(CACHE_DIR_NAME, f"last_forecast_{entry.entry_id}.json")
         )
+        self.load_plan: LoadPlanResult | None = None
+        self.load_config_path = Path(hass.config.path(CACHE_DIR_NAME, "loads.yaml"))
         self._current_value_unsub = None
         super().__init__(
             hass,
@@ -269,6 +272,42 @@ class PvForecastCoordinator(DataUpdateCoordinator):
                     len(self.data.forecast_points),
                 )
             raise UpdateFailed(f"Could not update PV forecast: {err}") from err
+
+    async def async_update_load_plan(self) -> None:
+        """Update the basic load plan from the stored forecast."""
+        from .load_planner import create_load_plan, load_load_config
+
+        if self.data is None:
+            raise UpdateFailed("No PV forecast available for load planning")
+
+        now = dt_util.as_local(dt_util.now()).replace(tzinfo=None, second=0, microsecond=0)
+        _LOGGER.info("Starting load plan update: config=%s", self.load_config_path)
+        try:
+            base_load_w, loads = await self.hass.async_add_executor_job(
+                load_load_config,
+                self.load_config_path,
+            )
+            result = await self.hass.async_add_executor_job(
+                partial(
+                    create_load_plan,
+                    forecast_points=self.data.forecast_points,
+                    base_load_w=base_load_w,
+                    loads=loads,
+                    now=now,
+                )
+            )
+        except Exception as err:
+            _LOGGER.exception("Load plan update failed")
+            raise UpdateFailed(f"Could not update load plan: {err}") from err
+
+        self.load_plan = result
+        self.async_set_updated_data(self.data)
+        _LOGGER.info(
+            "Load plan update successful: loads=%s, forecast_start=%s, forecast_end=%s",
+            len(result.planned_loads),
+            result.forecast_start,
+            result.forecast_end,
+        )
 
 
 def save_cached_forecast(path: Path, result: PvForecastResult) -> None:

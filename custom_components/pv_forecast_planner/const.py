@@ -23,3 +23,4 @@ CONF_SAFE_FORECAST_FACTOR = "safe_forecast_factor"
 CONF_TIMEZONE = "timezone"
 
 SERVICE_UPDATE_FORECAST = "update_forecast"
+SERVICE_UPDATE_LOAD_PLAN = "update_load_plan"

@@ -1,0 +1,22 @@
+base_load_w: 500
+
+loads:
+  - name: Dishwasher
+    entity_id: switch.dishwasher
+    turn_on_script: script.start_dishwasher
+    turn_off_script: script.stop_dishwasher
+    power_w: 1200
+    total_minutes: 90
+    min_run_minutes: 90
+    earliest_start: "09:00"
+    latest_end: "18:00"
+    priority: 1
+
+  - name: Washing machine
+    entity_id: switch.washing_machine
+    power_w: 800
+    total_minutes: 120
+    min_run_minutes: 120
+    earliest_start: "10:00"
+    latest_end: "20:00"
+    priority: 2

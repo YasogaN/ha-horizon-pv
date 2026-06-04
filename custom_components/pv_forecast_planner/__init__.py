@@ -8,7 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 
-from .const import DOMAIN, SERVICE_UPDATE_FORECAST
+from .const import DOMAIN, SERVICE_UPDATE_FORECAST, SERVICE_UPDATE_LOAD_PLAN
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 _LOGGER = logging.getLogger(__name__)
@@ -45,6 +45,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             handle_update_forecast,
         )
 
+    if not hass.services.has_service(DOMAIN, SERVICE_UPDATE_LOAD_PLAN):
+
+        async def handle_update_load_plan(call: ServiceCall) -> None:
+            """Refresh load plans for all configured coordinators."""
+            _LOGGER.info("Load plan update service called")
+            for item in hass.data.get(DOMAIN, {}).values():
+                await item.async_update_load_plan()
+                _LOGGER.info("Load plan update finished")
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_UPDATE_LOAD_PLAN,
+            handle_update_load_plan,
+        )
+
     return True
 
 
@@ -57,6 +72,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass.data.pop(DOMAIN)
             if hass.services.has_service(DOMAIN, SERVICE_UPDATE_FORECAST):
                 hass.services.async_remove(DOMAIN, SERVICE_UPDATE_FORECAST)
+            if hass.services.has_service(DOMAIN, SERVICE_UPDATE_LOAD_PLAN):
+                hass.services.async_remove(DOMAIN, SERVICE_UPDATE_LOAD_PLAN)
     return unload_ok
 
 

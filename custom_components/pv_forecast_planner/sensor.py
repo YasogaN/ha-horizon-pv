@@ -30,6 +30,7 @@ async def async_setup_entry(
         [
             PvForecastPowerSensor(coordinator, entry),
             PvSafeForecastPowerSensor(coordinator, entry),
+            PvLoadPlanSensor(coordinator, entry),
         ]
     )
 
@@ -132,5 +133,86 @@ class PvSafeForecastPowerSensor(CoordinatorEntity[PvForecastCoordinator], Sensor
                     round(point.safe_pv_power_w, 1),
                 ]
                 for point in data.forecast_points
+            ],
+        }
+
+
+class PvLoadPlanSensor(CoordinatorEntity[PvForecastCoordinator], SensorEntity):
+    """Basic PV load plan sensor."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Load plan"
+
+    def __init__(self, coordinator: PvForecastCoordinator, entry: ConfigEntry) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_load_plan"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": entry.title,
+            "manufacturer": "PV Forecast Planner",
+        }
+
+    @property
+    def native_value(self) -> str:
+        """Return the next planned load event."""
+        plan = self.coordinator.load_plan
+        if plan is None or plan.next_event is None:
+            return "none"
+        return f"{plan.next_event.device} {plan.next_event.action}"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return load plan data."""
+        plan = self.coordinator.load_plan
+        if plan is None:
+            return {}
+        next_load = plan.next_load
+        next_event = plan.next_event
+        return {
+            "generated_at": plan.generated_at.isoformat(),
+            "forecast_start": plan.forecast_start.isoformat(),
+            "forecast_end": plan.forecast_end.isoformat(),
+            "base_load_w": round(plan.base_load_w, 1),
+            "loads_planned": len(plan.planned_loads),
+            "next_load": None if next_load is None else next_load.name,
+            "next_start": None if next_load is None else next_load.start.isoformat(),
+            "next_end": None if next_load is None else next_load.end.isoformat(),
+            "next_event": None if next_event is None else next_event.action,
+            "next_event_time": None if next_event is None else next_event.time.isoformat(),
+            "next_event_device": None if next_event is None else next_event.device,
+            "next_event_entity_id": None if next_event is None else next_event.entity_id,
+            "next_event_script": None if next_event is None else next_event.script,
+            "plan": [
+                {
+                    "name": load.name,
+                    "entity_id": load.entity_id,
+                    "turn_on_script": load.turn_on_script,
+                    "turn_off_script": load.turn_off_script,
+                    "start": load.start.isoformat(),
+                    "end": load.end.isoformat(),
+                    "power_w": round(load.power_w, 1),
+                    "duration_minutes": load.duration_minutes,
+                    "total_minutes": load.total_minutes,
+                    "min_run_minutes": load.min_run_minutes,
+                    "energy_kwh": round(load.energy_kwh, 3),
+                }
+                for load in plan.planned_loads
+            ],
+            "events": [
+                {
+                    "time": event.time.isoformat(),
+                    "device": event.device,
+                    "action": event.action,
+                    "entity_id": event.entity_id,
+                    "script": event.script,
+                }
+                for event in plan.events
+            ],
+            "planned_load_format": ["datetime", "planned_load_w"],
+            "planned_load": [
+                [timestamp.isoformat(), round(power_w, 1)]
+                for timestamp, power_w in plan.planned_load_curve
+                if power_w > 0
             ],
         }
