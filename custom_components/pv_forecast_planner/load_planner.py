@@ -205,7 +205,7 @@ def create_load_plan(
                 )
             )
 
-    planned_loads.sort(key=lambda item: item.start)
+    planned_loads = merge_adjacent_loads(planned_loads)
     return LoadPlanResult(
         generated_at=now,
         forecast_start=points[0].timestamp,
@@ -227,7 +227,7 @@ def find_best_start(
     duration_slots: int,
     blocked: set[int],
 ) -> int | None:
-    """Find the best start slot with the least grid import."""
+    """Find the start slot with the safest fit below the forecast curve."""
     best_start = None
     best_score = None
     for start_index in range(0, len(points) - duration_slots + 1):
@@ -238,15 +238,23 @@ def find_best_start(
         if not is_allowed_window(block[0].timestamp, block[-1].timestamp, load):
             continue
 
-        grid_import_w = 0.0
-        unused_surplus_w = 0.0
+        overflow_w = 0.0
+        surplus_after_load_values = []
         for offset, point in enumerate(block):
             already_planned_w = planned_curve[start_index + offset]
             available_w = point.safe_pv_power_w - base_load_w - already_planned_w
-            grid_import_w += max(0.0, load.power_w - available_w)
-            unused_surplus_w += max(0.0, available_w - load.power_w)
+            surplus_after_load_w = available_w - load.power_w
+            overflow_w += max(0.0, -surplus_after_load_w)
+            surplus_after_load_values.append(surplus_after_load_w)
 
-        score = (grid_import_w, -unused_surplus_w, block[0].timestamp)
+        min_surplus_w = min(surplus_after_load_values)
+        avg_surplus_w = sum(surplus_after_load_values) / len(surplus_after_load_values)
+        score = (
+            overflow_w,
+            -min_surplus_w,
+            -avg_surplus_w,
+            block[0].timestamp,
+        )
         if best_score is None or score < best_score:
             best_score = score
             best_start = start_index
@@ -280,6 +288,40 @@ def chunk_sizes(total_slots: int, min_run_slots: int, max_starts: int) -> list[i
         remaining -= 1
         index = (index + 1) % start_count
     return chunks
+
+
+def merge_adjacent_loads(loads: list[PlannedLoad]) -> list[PlannedLoad]:
+    """Merge directly adjacent blocks for the same load into one switching block."""
+    merged: list[PlannedLoad] = []
+    for load in sorted(loads, key=lambda item: (item.name, item.start)):
+        if (
+            merged
+            and merged[-1].name == load.name
+            and merged[-1].end == load.start
+            and merged[-1].entity_id == load.entity_id
+            and merged[-1].turn_on_script == load.turn_on_script
+            and merged[-1].turn_off_script == load.turn_off_script
+            and merged[-1].power_w == load.power_w
+        ):
+            previous = merged[-1]
+            merged[-1] = PlannedLoad(
+                name=previous.name,
+                entity_id=previous.entity_id,
+                turn_on_script=previous.turn_on_script,
+                turn_off_script=previous.turn_off_script,
+                start=previous.start,
+                end=load.end,
+                power_w=previous.power_w,
+                duration_minutes=previous.duration_minutes + load.duration_minutes,
+                total_minutes=previous.total_minutes,
+                min_run_minutes=previous.min_run_minutes,
+                energy_kwh=previous.energy_kwh + load.energy_kwh,
+            )
+            continue
+
+        merged.append(load)
+
+    return sorted(merged, key=lambda item: item.start)
 
 
 def parse_time(value: str) -> time:

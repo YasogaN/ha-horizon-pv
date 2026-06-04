@@ -90,7 +90,9 @@ Temporary Open-Meteo gateway or timeout errors are retried automatically before 
 For basic load planning, copy `examples/loads.yaml` to `/config/pv_forecast_planner/loads.yaml`.
 The planner uses the stored safe forecast from now until the last forecast point.
 Each load needs `total_minutes`, `min_run_minutes`, `power_w`, `earliest_start`, and `latest_end`.
-The possible number of starts is derived from `total_minutes` and `min_run_minutes`.
+Loads may be split into multiple blocks, but each block must be at least `min_run_minutes` long.
+Directly adjacent blocks of the same load are merged, so there are no unnecessary off/on events.
+Optional `max_starts` can be used to limit the number of separate runs.
 `sensor.pv_forecast_planner_load_plan` exposes planned load blocks in `plan` and concrete switching events in `events`.
 Each event contains `time`, `device`, `action`, and optional `entity_id` or `script`.
 
@@ -250,7 +252,7 @@ loads:
 ```
 
 Required fields per load: `name`, `power_w`, `total_minutes`, `min_run_minutes`, `earliest_start`, `latest_end`.
-Optional fields: `priority`, `entity_id`, `turn_on_script`, `turn_off_script`.
+Optional fields: `priority`, `entity_id`, `turn_on_script`, `turn_off_script`, `max_starts`.
 `entity_id` is optional, so script-only loads are valid.
 
 Run forecast and load planning:
@@ -261,7 +263,9 @@ action:
   - service: pv_forecast_planner.update_load_plan
 ```
 
-The planner uses the safe PV forecast, subtracts `base_load_w`, and places the loads where they fit best under the safe forecast curve. The output is available on `sensor.pv_forecast_planner_load_plan`:
+The planner uses the safe PV forecast, subtracts `base_load_w`, and places the loads where they fit best under the safe forecast curve.
+It first minimizes forecast overflow, then prefers the block with the highest remaining safety margin.
+The output is available on `sensor.pv_forecast_planner_load_plan`:
 
 ```text
 plan: planned load blocks
