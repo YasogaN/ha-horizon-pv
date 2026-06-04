@@ -213,6 +213,5 @@ class PvLoadPlanSensor(CoordinatorEntity[PvForecastCoordinator], SensorEntity):
             "planned_load": [
                 [timestamp.isoformat(), round(power_w, 1)]
                 for timestamp, power_w in plan.planned_load_curve
-                if power_w > 0
             ],
         }

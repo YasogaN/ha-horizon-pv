@@ -154,8 +154,11 @@ series:
       });
   - entity: sensor.pv_forecast_planner_load_plan
     name: Planned Load
-    type: column
+    type: area
     color: "#ff9f43"
+    opacity: 0.28
+    stroke_width: 0
+    curve: stepline
     data_generator: |
       return (entity.attributes.planned_load || []).map((row) => {
         return [new Date(row[0]).getTime(), row[1]];
