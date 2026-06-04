@@ -92,6 +92,8 @@ python3 custom_components/pv_forecast_planner/tests.py
 
 `services.yaml` defines `pv_forecast_planner.update_forecast`.
 
+`brand/` contains the Home Assistant icon and logo files.
+
 `pv/weather.py` fetches Open-Meteo data.
 
 `pv/model.py` loads the XGBoost model and metadata.

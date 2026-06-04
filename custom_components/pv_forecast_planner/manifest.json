@@ -9,6 +9,6 @@
   "integration_type": "service",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/wolpa29/homeassistant-pv-forecast-planner/issues",
-  "requirements": ["xgboost==3.2.0"],
-  "version": "0.0.5"
+  "requirements": ["xgboost-cpu==3.2.0"],
+  "version": "0.0.7"
 }
