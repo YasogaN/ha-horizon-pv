@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class PvForecastModel:
@@ -13,8 +16,15 @@ class PvForecastModel:
 
     def load(self) -> None:
         """Load model.json and features.json from the configured model directory."""
+        _LOGGER.info("Loading PV forecast model from %s", self.model_dir)
         self.load_metadata()
         self.load_model()
+        _LOGGER.info(
+            "PV forecast model loaded: features=%s, observed_peak_w=%s, safe_factor=%s",
+            len(self.feature_columns),
+            self.observed_peak_w,
+            self.safe_prediction_factor,
+        )
 
     def load_metadata(self) -> None:
         """Load features.json from the configured model directory."""
@@ -24,6 +34,7 @@ class PvForecastModel:
 
         with features_path.open("r", encoding="utf-8") as file:
             self.metadata = json.load(file)
+        _LOGGER.debug("Loaded PV forecast metadata from %s", features_path)
 
     def load_model(self) -> None:
         """Load model.json from the configured model directory."""
@@ -36,6 +47,7 @@ class PvForecastModel:
         model = Booster()
         model.load_model(model_path)
         self.model = model
+        _LOGGER.debug("Loaded XGBoost model from %s", model_path)
 
     def predict(self, feature_matrix: list[list[float]]) -> list[float]:
         """Predict PV power in watts for the given feature matrix."""
@@ -44,6 +56,7 @@ class PvForecastModel:
 
         from xgboost import DMatrix
 
+        _LOGGER.debug("Running PV model prediction for %s rows", len(feature_matrix))
         predictions = self.model.predict(DMatrix(feature_matrix))
         return [max(0.0, float(value)) for value in predictions]
 

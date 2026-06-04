@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from functools import lru_cache
+import logging
 from pathlib import Path
 
 from .features import build_feature_matrix, build_feature_rows
@@ -12,6 +13,7 @@ from .model import PvForecastModel
 from .weather import fetch_open_meteo_forecast
 
 INTERVAL_MINUTES = 15
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -67,11 +69,13 @@ def create_pv_forecast(
 ) -> PvForecastResult:
     """Create a PV forecast from Open-Meteo data and the configured model."""
     current_slot = floor_to_interval(now.replace(tzinfo=None), INTERVAL_MINUTES)
+    _LOGGER.info("Creating PV forecast for current_slot=%s", current_slot)
     model = get_model(str(Path(config.model_dir)))
 
     observed_peak_w = model.observed_peak_w
     if observed_peak_w is None:
         raise ValueError("features.json does not contain observed_peak_w")
+    _LOGGER.info("Using observed_peak_w=%s from model metadata", observed_peak_w)
 
     primary_weather = fetch_open_meteo_forecast(
         latitude=config.latitude,
@@ -97,10 +101,23 @@ def create_pv_forecast(
         panel_azimuth_deg=config.panel_azimuth_deg,
         panel_tilt_deg=config.panel_tilt_deg,
     )
+    _LOGGER.info("Built PV feature rows: rows=%s", len(rows))
     feature_matrix = build_feature_matrix(rows, model.feature_columns)
+    _LOGGER.info(
+        "Built PV feature matrix: rows=%s, columns=%s",
+        len(feature_matrix),
+        len(model.feature_columns),
+    )
     predictions = model.predict(feature_matrix)
     safe_factor = model.safe_prediction_factor
     safe_predictions = [prediction * safe_factor for prediction in predictions]
+    if predictions:
+        _LOGGER.info(
+            "PV model predictions created: rows=%s, min_w=%.1f, max_w=%.1f",
+            len(predictions),
+            min(predictions),
+            max(predictions),
+        )
 
     points = tuple(
         PvForecastPoint(row["_timestamp"], prediction, safe_prediction)
@@ -109,6 +126,12 @@ def create_pv_forecast(
     )
     if not points:
         raise ValueError("No PV forecast points available for the current slot")
+    _LOGGER.info(
+        "Filtered PV forecast points: rows=%s, first=%s, last=%s",
+        len(points),
+        points[0].timestamp,
+        points[-1].timestamp,
+    )
 
     current_point = min(
         points,

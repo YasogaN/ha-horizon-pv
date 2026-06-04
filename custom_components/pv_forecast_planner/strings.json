@@ -22,6 +22,24 @@
       "already_configured": "PV Forecast Planner is already configured"
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "PV Forecast Planner options",
+        "description": "Change the trained model and PV system settings.",
+        "data": {
+          "model_dir": "Model directory",
+          "latitude": "Latitude",
+          "longitude": "Longitude",
+          "timezone": "Timezone",
+          "panel_azimuth_deg": "Panel azimuth",
+          "panel_tilt_deg": "Panel tilt",
+          "forecast_days": "Forecast days",
+          "secondary_forecast_model": "Secondary Open-Meteo model"
+        }
+      }
+    }
+  },
   "entity": {
     "sensor": {
       "forecast_power": {

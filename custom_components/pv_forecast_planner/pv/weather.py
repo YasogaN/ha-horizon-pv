@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
 from urllib.parse import urlencode
 from urllib.request import urlopen
+
+_LOGGER = logging.getLogger(__name__)
 
 OPEN_METEO_FORECAST_ENDPOINT = "https://api.open-meteo.com/v1/forecast"
 REQUEST_TIMEOUT_SECONDS = 90
@@ -50,6 +53,7 @@ WEATHER_15_MIN_VARIABLES = [
 def fetch_json(endpoint: str, params: dict[str, object]) -> dict:
     """Fetch JSON from an HTTP endpoint."""
     url = endpoint + "?" + urlencode(params)
+    _LOGGER.debug("Fetching Open-Meteo data from %s", url)
     with urlopen(url, timeout=REQUEST_TIMEOUT_SECONDS) as response:
         payload = response.read().decode("utf-8")
 
@@ -74,8 +78,22 @@ def fetch_open_meteo_forecast(
     if model is not None:
         params["models"] = model
 
+    _LOGGER.info(
+        "Fetching Open-Meteo forecast: lat=%s, lon=%s, timezone=%s, days=%s, model=%s",
+        latitude,
+        longitude,
+        timezone,
+        forecast_days,
+        model or "default",
+    )
     data = fetch_json(OPEN_METEO_FORECAST_ENDPOINT, params)
-    return parse_minutely_15_forecast(data)
+    rows = parse_minutely_15_forecast(data)
+    _LOGGER.info(
+        "Open-Meteo forecast loaded: model=%s, rows=%s",
+        model or "default",
+        len(rows),
+    )
+    return rows
 
 
 def parse_minutely_15_forecast(data: dict) -> dict[datetime, dict[str, float]]:

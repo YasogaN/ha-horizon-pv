@@ -43,6 +43,8 @@ Use this path during setup:
 
 Setup asks for the model directory, latitude, longitude, timezone, panel azimuth, panel tilt, forecast days, and secondary Open-Meteo model such as `icon_eu`.
 
+After setup, change these values from the integration options.
+
 ## Automation
 
 Call this service from an automation to calculate or replace the forecast:
@@ -55,6 +57,16 @@ trigger:
 action:
   - service: pv_forecast_planner.update_forecast
 mode: single
+```
+
+## Logging
+
+Enable debug logs while testing:
+
+```yaml
+logger:
+  logs:
+    custom_components.pv_forecast_planner: debug
 ```
 
 ## Local smoke test
