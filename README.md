@@ -6,6 +6,8 @@
 
 Home Assistant custom integration that reads a trained XGBoost JSON model with a pure Python predictor, fetches Open-Meteo forecast data, and exposes PV forecast sensors.
 
+Optional tools for SunnyPortal scraping, Open-Meteo training data, dataset creation, and model training are in `tools/`.
+
 [![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=wolpa29&repository=homeassistant-pv-forecast-planner&category=integration)
 
 The main sensor state is the predicted PV power for the current 15-minute slot in watts. A second sensor exposes the current safe forecast power. Each sensor has its own compact `forecast` attribute and it is replaced whenever a new forecast is calculated.
