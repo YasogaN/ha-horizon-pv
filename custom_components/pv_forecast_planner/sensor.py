@@ -68,14 +68,17 @@ class PvForecastPowerSensor(CoordinatorEntity[PvForecastCoordinator], SensorEnti
             "total_energy_kwh": round(data.total_energy_kwh, 3),
             "safe_total_energy_kwh": round(data.safe_total_energy_kwh, 3),
             "interval_minutes": 15,
+            "forecast_format": [
+                "datetime",
+                "pv_power_w",
+                "safe_pv_power_w",
+            ],
             "forecast": [
-                {
-                    "datetime": point.timestamp.isoformat(),
-                    "pv_power_w": round(point.pv_power_w, 1),
-                    "safe_pv_power_w": round(point.safe_pv_power_w, 1),
-                    "pv_energy_kwh": round(point.pv_energy_kwh, 4),
-                    "safe_pv_energy_kwh": round(point.safe_pv_energy_kwh, 4),
-                }
+                [
+                    point.timestamp.isoformat(),
+                    round(point.pv_power_w, 1),
+                    round(point.safe_pv_power_w, 1),
+                ]
                 for point in data.forecast_points
             ],
         }

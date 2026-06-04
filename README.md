@@ -8,7 +8,7 @@ Home Assistant custom integration that reads a trained XGBoost JSON model with a
 
 [![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=wolpa29&repository=homeassistant-pv-forecast-planner&category=integration)
 
-The sensor state is the predicted PV power for the current 15-minute slot in watts; the full future forecast is available in the `forecast` attribute. The `forecast` attribute is replaced whenever a new forecast is calculated.
+The sensor state is the predicted PV power for the current 15-minute slot in watts; the full future forecast is available as compact rows in the `forecast` attribute. The `forecast` attribute is replaced whenever a new forecast is calculated.
 
 ## Installation
 
