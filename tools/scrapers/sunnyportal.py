@@ -21,9 +21,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from config.settings import (
     DATA_DIR as CONFIG_DATA_DIR,
-    ENERGY_BALANCE_DIR as CONFIG_ENERGY_BALANCE_DIR,
     END_DATE,
     START_DATE,
+    SUNNYPORTAL_RAW_DIR as CONFIG_SUNNYPORTAL_RAW_DIR,
     SUNNYPORTAL_EMAIL,
     SUNNYPORTAL_LOGIN_URL,
     SUNNYPORTAL_PASSWORD,
@@ -34,7 +34,7 @@ PASSWORD = SUNNYPORTAL_PASSWORD
 LOGIN_URL = SUNNYPORTAL_LOGIN_URL
 
 BASE_DATA_DIR = str(CONFIG_DATA_DIR)
-DATA_DIR = str(CONFIG_ENERGY_BALANCE_DIR)
+DATA_DIR = str(CONFIG_SUNNYPORTAL_RAW_DIR)
 LOG_FILE_HANDLE = None
 ORIGINAL_STDOUT = sys.stdout
 ORIGINAL_STDERR = sys.stderr
@@ -87,7 +87,7 @@ def setup_run_log():
     sys.stdout = TeeStream(ORIGINAL_STDOUT, LOG_FILE_HANDLE)
     sys.stderr = TeeStream(ORIGINAL_STDERR, LOG_FILE_HANDLE)
 
-    print(f"Energy-Balance-Ordner: {DATA_DIR}")
+    print(f"SunnyPortal-Rohdatenordner: {DATA_DIR}")
     print(f"Logdatei: {log_path}")
     return log_path
 
@@ -117,7 +117,7 @@ def iter_dates(start_date, end_date):
 
 
 def energy_csv_paths():
-    """Liefert nur finale Tages-CSVs aus dem Energy-Balance-Ordner."""
+    """Liefert nur finale SunnyPortal-Tages-CSVs aus dem Rohdatenordner."""
     return [
         path
         for path in Path(DATA_DIR).glob("Energy_Balance_*.csv")

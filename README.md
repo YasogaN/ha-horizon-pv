@@ -6,7 +6,7 @@
 
 Home Assistant custom integration that reads a trained XGBoost JSON model with a pure Python predictor, fetches Open-Meteo forecast data, and exposes PV forecast sensors.
 
-Optional tools for SunnyPortal scraping, Open-Meteo training data, dataset creation, and model training are in `tools/`.
+Optional tools for SunnyPortal scraping, generic PV measurement CSVs, Open-Meteo training data, dataset creation, and model training are in `tools/`.
 
 [![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=wolpa29&repository=homeassistant-pv-forecast-planner&category=integration)
 

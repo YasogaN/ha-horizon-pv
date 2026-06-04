@@ -18,13 +18,17 @@ def run_step(command, title):
 
 def main():
     parser = argparse.ArgumentParser(description="Laedt/aktualisiert historische PV- und Wetterdaten.")
-    parser.add_argument("--skip-pv", action="store_true", help="SunnyPortal Energy-Balance-Daten nicht laden.")
+    parser.add_argument("--skip-pv", action="store_true", help="SunnyPortal-Rohdaten nicht laden.")
+    parser.add_argument("--skip-measurements", action="store_true", help="PV-Messdatei aus SunnyPortal-Rohdaten nicht neu bauen.")
     parser.add_argument("--skip-weather", action="store_true", help="Historische Wetterdaten nicht laden.")
     parser.add_argument("--skip-dataset", action="store_true", help="ML-Datensatz danach nicht neu bauen.")
     args = parser.parse_args()
 
     if not args.skip_pv:
         run_step([sys.executable, "scrapers/sunnyportal.py"], "SunnyPortal-Daten aktualisieren")
+
+    if not args.skip_measurements:
+        run_step([sys.executable, "pv_measurements.py"], "PV-Messdatei bauen")
 
     if not args.skip_weather:
         run_step([sys.executable, "scrapers/weather.py"], "Historische Wetterdaten aktualisieren")

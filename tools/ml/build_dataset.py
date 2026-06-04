@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Erzeugt einen ML-Datensatz aus SunnyPortal-PV-Daten und Wetter-Forecasts."""
+"""Erzeugt einen ML-Datensatz aus PV-Messdaten und Wetter-Forecasts."""
 
 import argparse
 import csv
 import math
-import re
 import sys
-from datetime import datetime, date, time, timedelta
+from datetime import datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -14,20 +13,18 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from config.settings import (
-    ENERGY_BALANCE_DIR,
     LATITUDE,
     LONGITUDE,
     ML_DATASET_OUTPUT,
     ML_END_DATE,
     ML_START_DATE,
+    PV_MEASUREMENTS_CSV,
     PV_PANEL_AZIMUTH_DEG,
     PV_PANEL_TILT_DEG,
     TIMEZONE,
     WEATHER_FORECAST_OUTPUT,
     WEATHER_SECONDARY_FORECAST_OUTPUT,
 )
-
-FILENAME_RE = re.compile(r"Energy_Balance_(\d{4})_(\d{2})_(\d{2})\.csv$")
 
 # Physikalische Zusatzfeatures. Ausrichtung/Neigung kommen aus config/settings.py
 # bzw. aus .env, damit du sie spaeter leicht anpassen kannst.
@@ -75,7 +72,7 @@ OUTPUT_BASE_COLUMNS = [
     "pv_observed_peak_w",
     "pv_clear_sky_power_estimate_w",
     "target_pv_power_generation_w",
-    "pv_source_file",
+    "pv_measurement_source",
 ]
 
 COLUMN_METADATA = {
@@ -102,10 +99,10 @@ COLUMN_METADATA = {
     "icon_clear_sky_index": ("unitless", "feature_physical", "ICON-Shortwave geteilt durch wolkenfreie Horizontalstrahlung."),
     "forecast_panel_irradiance_ratio": ("unitless", "feature_physical", "Forecast-Global-Tilted geteilt durch wolkenfreie Modulflächenstrahlung."),
     "icon_panel_irradiance_ratio": ("unitless", "feature_physical", "ICON-Global-Tilted geteilt durch wolkenfreie Modulflächenstrahlung."),
-    "pv_observed_peak_w": ("W", "feature_physical", "Hoechste bisher beobachtete PV-Leistung im Energy-Balance-Datensatz."),
+    "pv_observed_peak_w": ("W", "feature_physical", "Hoechste bisher beobachtete PV-Leistung in den PV-Messdaten."),
     "pv_clear_sky_power_estimate_w": ("W", "feature_physical", "Grobe Leistungsschaetzung aus wolkenfreier Modulflächenstrahlung und beobachtetem Peak."),
-    "target_pv_power_generation_w": ("W", "target", "PV-Leistung aus SunnyPortal."),
-    "pv_source_file": ("filename", "metadata", "Originale SunnyPortal-Quelldatei."),
+    "target_pv_power_generation_w": ("W", "target", "Gemessene PV-Leistung."),
+    "pv_measurement_source": ("text", "metadata", "Optionale Quelle des Messwerts."),
     "forecast_temperature_2m": ("degC", "feature_forecast", "Vorhergesagte Lufttemperatur in 2 m Hoehe."),
     "forecast_relative_humidity_2m": ("%", "feature_forecast", "Vorhergesagte relative Luftfeuchtigkeit in 2 m Hoehe."),
     "forecast_dew_point_2m": ("degC", "feature_forecast", "Vorhergesagter Taupunkt in 2 m Hoehe."),
@@ -144,22 +141,6 @@ COLUMN_METADATA = {
 }
 
 
-def parse_date_from_filename(path):
-    match = FILENAME_RE.match(path.name)
-    if not match:
-        raise ValueError(f"Dateiname passt nicht zum SunnyPortal-Format: {path.name}")
-    year, month, day = map(int, match.groups())
-    return date(year, month, day)
-
-
-def parse_time_cell(value):
-    value = value.strip()
-    if value.startswith("="):
-        value = value[1:]
-    value = value.strip('"')
-    return datetime.strptime(value, "%H:%M").time()
-
-
 def parse_number(value):
     value = value.strip()
     if value == "":
@@ -183,55 +164,45 @@ def iter_expected_timestamps(start_date, end_date):
         current += timedelta(minutes=15)
 
 
-def collect_energy_files(input_dir, recursive=False):
-    pattern = "**/Energy_Balance_*.csv" if recursive else "Energy_Balance_*.csv"
-    return sorted(
-        (path for path in input_dir.glob(pattern) if FILENAME_RE.match(path.name)),
-        key=parse_date_from_filename,
-    )
+def read_pv_measurements(path):
+    if not path.exists():
+        raise SystemExit(
+            f"PV measurement file missing: {path}\n"
+            "Create it with pv_measurements.py or provide your own CSV with "
+            "timestamp,pv_power_w."
+        )
 
-
-def read_pv_generation(input_dir, recursive=False):
     rows_by_timestamp = {}
     duplicate_timestamps = []
     empty_targets = []
-    files = collect_energy_files(input_dir, recursive)
-    if not files:
-        raise SystemExit(f"Keine Energy_Balance_YYYY_MM_DD.csv Dateien gefunden in {input_dir}")
 
-    for path in files:
-        day = parse_date_from_filename(path)
-        with path.open("r", encoding="utf-8-sig", newline="") as file:
-            reader = csv.reader(file, delimiter=";")
-            header = next(reader, None)
-            if not header:
-                print(f"WARNUNG: Leere PV-Datei: {path.name}")
+    with path.open("r", encoding="utf-8-sig", newline="") as file:
+        reader = csv.DictReader(file)
+        fieldnames = set(reader.fieldnames or [])
+        required = {"timestamp", "pv_power_w"}
+        missing = required - fieldnames
+        if missing:
+            raise SystemExit(
+                f"PV measurement file is missing columns {sorted(missing)}: {path}"
+            )
+
+        for row in reader:
+            timestamp = datetime.fromisoformat(row["timestamp"])
+            target = parse_number(row["pv_power_w"])
+            if target == "":
+                empty_targets.append((timestamp, path.name))
                 continue
 
-            for row_number, row in enumerate(reader, start=1):
-                if len(row) < 9 or not row[0].strip():
-                    continue
+            if timestamp in rows_by_timestamp:
+                duplicate_timestamps.append(timestamp)
+                continue
 
-                slot_time = parse_time_cell(row[0])
-                timestamp_day = day
-                if row_number > 1 and slot_time == time(0, 0):
-                    timestamp_day = day + timedelta(days=1)
-                timestamp = datetime.combine(timestamp_day, slot_time)
-                target = parse_number(row[8])
-                if target == "":
-                    empty_targets.append((timestamp, path.name))
-                    continue
+            rows_by_timestamp[timestamp] = {
+                "target_pv_power_generation_w": target,
+                "pv_measurement_source": row.get("source", ""),
+            }
 
-                if timestamp in rows_by_timestamp:
-                    duplicate_timestamps.append(timestamp)
-                    continue
-
-                rows_by_timestamp[timestamp] = {
-                    "target_pv_power_generation_w": target,
-                    "pv_source_file": path.name,
-                }
-
-    return rows_by_timestamp, files, duplicate_timestamps, empty_targets
+    return rows_by_timestamp, duplicate_timestamps, empty_targets
 
 
 def read_forecast(path, column_prefix):
@@ -516,21 +487,20 @@ def column_metadata(column):
 
 
 def build_dataset(
-    input_dir,
+    pv_measurements_path,
     forecast_path,
     secondary_forecast_path,
     output_path,
     start_date,
     end_date,
-    recursive=False,
 ):
     print("Baue ML-Datensatz aus PV-Daten und Forecast-Daten...")
-    print(f"PV-Ordner: {input_dir}")
+    print(f"PV-Messdatei: {pv_measurements_path}")
     print(f"Forecast-Datei: {forecast_path}")
     print(f"Zweite Forecast-Datei: {secondary_forecast_path}")
     print(f"Zeitraum: {start_date:%d.%m.%Y} bis {end_date:%d.%m.%Y}")
 
-    pv_rows, pv_files, pv_duplicates, empty_targets = read_pv_generation(input_dir, recursive)
+    pv_rows, pv_duplicates, empty_targets = read_pv_measurements(pv_measurements_path)
     observed_peak_w = max(
         float(row["target_pv_power_generation_w"])
         for row in pv_rows.values()
@@ -597,7 +567,7 @@ def build_dataset(
     metadata_path = write_column_metadata(columns, output_path)
 
     print("\nML-Datensatz erstellt")
-    print(f"PV-Dateien gefunden: {len(pv_files)}")
+    print(f"PV-Messwerte gelesen: {len(pv_rows)}")
     print(f"Hoechste beobachtete PV-Leistung: {observed_peak_w:.0f} W")
     print(f"Erwartete 15-Minuten-Slots: {len(expected_timestamps)}")
     print(f"Geschriebene Zeilen: {rows_written}")
@@ -616,14 +586,14 @@ def date_arg(value):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Erzeugt einen ML-Datensatz aus SunnyPortal-PV-Daten und Open-Meteo-Forecasts."
+        description="Erzeugt einen ML-Datensatz aus PV-Messdaten und Open-Meteo-Forecasts."
     )
     parser.add_argument(
-        "input_dir",
+        "pv_measurements",
         nargs="?",
         type=Path,
-        default=ENERGY_BALANCE_DIR,
-        help="Ordner mit Energy_Balance_YYYY_MM_DD.csv Dateien. Standard: ENERGY_BALANCE_DIR.",
+        default=PV_MEASUREMENTS_CSV,
+        help="CSV mit timestamp,pv_power_w. Standard: PV_MEASUREMENTS_CSV.",
     )
     parser.add_argument(
         "--forecast",
@@ -646,20 +616,18 @@ def main():
     )
     parser.add_argument("--start", type=date_arg, default=ML_START_DATE, help="Startdatum YYYY-MM-DD")
     parser.add_argument("--end", type=date_arg, default=ML_END_DATE, help="Enddatum YYYY-MM-DD")
-    parser.add_argument("--recursive", action="store_true", help="PV-Dateien rekursiv suchen")
     args = parser.parse_args()
 
     if args.end < args.start:
         raise SystemExit("Enddatum liegt vor dem Startdatum.")
 
     build_dataset(
-        args.input_dir,
+        args.pv_measurements,
         args.forecast,
         args.secondary_forecast,
         args.output,
         args.start,
         args.end,
-        args.recursive,
     )
 
 

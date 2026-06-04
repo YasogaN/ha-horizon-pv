@@ -69,7 +69,11 @@ def env_date(name, default):
 load_dotenv(PROJECT_DIR / ".env")
 
 DATA_DIR = env_path("DATA_DIR", PROJECT_DIR / "data")
-ENERGY_BALANCE_DIR = env_path("ENERGY_BALANCE_DIR", DATA_DIR / "energy_balance")
+SUNNYPORTAL_RAW_DIR = env_path("SUNNYPORTAL_RAW_DIR", DATA_DIR / "sunnyportal_raw")
+PV_MEASUREMENTS_CSV = env_path(
+    "PV_MEASUREMENTS_CSV",
+    DATA_DIR / "pv_measurements" / "pv_measurements.csv",
+)
 
 # Inklusive Start- und Enddatum.
 START_DATE = env_date("START_DATE", datetime(2024, 8, 1))

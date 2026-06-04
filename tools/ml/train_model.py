@@ -109,7 +109,7 @@ def load_dataset_rows():
         column
         for column in dataset_header
         if column_roles.get(column) in {"feature_time", "feature_forecast", "feature_physical"}
-        and column not in {"timestamp", "date", "time", "pv_source_file", TARGET_COLUMN}
+        and column not in {"timestamp", "date", "time", "pv_measurement_source", TARGET_COLUMN}
     ]
     neighbor_columns = (
         [
