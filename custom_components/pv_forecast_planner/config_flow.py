@@ -79,7 +79,7 @@ class PvForecastPlannerOptionsFlow(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize the options flow."""
-        self.config_entry = config_entry
+        self._config_entry = config_entry
 
     async def async_step_init(
         self,
@@ -89,8 +89,8 @@ class PvForecastPlannerOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        defaults = dict(self.config_entry.data)
-        defaults.update(self.config_entry.options)
+        defaults = dict(self._config_entry.data)
+        defaults.update(self._config_entry.options)
 
         return self.async_show_form(
             step_id="init",
