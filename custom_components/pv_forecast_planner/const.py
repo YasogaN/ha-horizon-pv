@@ -24,3 +24,4 @@ CONF_TIMEZONE = "timezone"
 
 SERVICE_UPDATE_FORECAST = "update_forecast"
 SERVICE_UPDATE_LOAD_PLAN = "update_load_plan"
+SERVICE_RUN_DUE_LOAD_EVENTS = "run_due_load_events"

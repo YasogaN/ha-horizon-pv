@@ -8,7 +8,12 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 
-from .const import DOMAIN, SERVICE_UPDATE_FORECAST, SERVICE_UPDATE_LOAD_PLAN
+from .const import (
+    DOMAIN,
+    SERVICE_RUN_DUE_LOAD_EVENTS,
+    SERVICE_UPDATE_FORECAST,
+    SERVICE_UPDATE_LOAD_PLAN,
+)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 _LOGGER = logging.getLogger(__name__)
@@ -60,6 +65,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             handle_update_load_plan,
         )
 
+    if not hass.services.has_service(DOMAIN, SERVICE_RUN_DUE_LOAD_EVENTS):
+
+        async def handle_run_due_load_events(call: ServiceCall) -> None:
+            """Run due load plan events for all configured coordinators."""
+            _LOGGER.info("Run due load events service called")
+            total_executed = 0
+            for item in hass.data.get(DOMAIN, {}).values():
+                total_executed += await item.async_run_due_load_events()
+            _LOGGER.info(
+                "Run due load events service finished: executed=%s",
+                total_executed,
+            )
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_RUN_DUE_LOAD_EVENTS,
+            handle_run_due_load_events,
+        )
+
     return True
 
 
@@ -74,6 +98,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 hass.services.async_remove(DOMAIN, SERVICE_UPDATE_FORECAST)
             if hass.services.has_service(DOMAIN, SERVICE_UPDATE_LOAD_PLAN):
                 hass.services.async_remove(DOMAIN, SERVICE_UPDATE_LOAD_PLAN)
+            if hass.services.has_service(DOMAIN, SERVICE_RUN_DUE_LOAD_EVENTS):
+                hass.services.async_remove(DOMAIN, SERVICE_RUN_DUE_LOAD_EVENTS)
     return unload_ok
 
 

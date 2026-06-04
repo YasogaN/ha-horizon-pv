@@ -5,3 +5,7 @@ update_forecast:
 update_load_plan:
   name: Update load plan
   description: Recalculate the basic load plan from the stored PV forecast and loads.yaml.
+
+run_due_load_events:
+  name: Run due load events
+  description: Execute due load plan events using configured scripts or entity IDs.

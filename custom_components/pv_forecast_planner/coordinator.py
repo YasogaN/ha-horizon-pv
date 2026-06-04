@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_OFF, SERVICE_TURN_ON
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -51,6 +52,7 @@ class PvForecastCoordinator(DataUpdateCoordinator):
         )
         self.load_plan: LoadPlanResult | None = None
         self.load_config_path = Path(hass.config.path(CACHE_DIR_NAME, "loads.yaml"))
+        self._executed_load_event_keys: set[str] = set()
         self._current_value_unsub = None
         super().__init__(
             hass,
@@ -301,6 +303,7 @@ class PvForecastCoordinator(DataUpdateCoordinator):
             raise UpdateFailed(f"Could not update load plan: {err}") from err
 
         self.load_plan = result
+        self._executed_load_event_keys.clear()
         self.async_set_updated_data(self.data)
         _LOGGER.info(
             "Load plan update successful: loads=%s, forecast_start=%s, forecast_end=%s",
@@ -308,6 +311,83 @@ class PvForecastCoordinator(DataUpdateCoordinator):
             result.forecast_start,
             result.forecast_end,
         )
+
+    async def async_run_due_load_events(self) -> int:
+        """Run load plan events that are due now."""
+        if self.load_plan is None:
+            _LOGGER.warning("No load plan available, skipping due load events")
+            return 0
+
+        now = dt_util.as_local(dt_util.now()).replace(tzinfo=None, second=0, microsecond=0)
+        due_after = now - timedelta(minutes=1)
+        executed_count = 0
+        _LOGGER.debug(
+            "Checking due load events: now=%s, event_count=%s",
+            now,
+            len(self.load_plan.events),
+        )
+
+        for event in self.load_plan.events:
+            if event.time > now or event.time < due_after:
+                continue
+
+            event_key = load_event_key(event)
+            if event_key in self._executed_load_event_keys:
+                _LOGGER.debug(
+                    "Load plan event already executed: time=%s, device=%s, action=%s",
+                    event.time,
+                    event.device,
+                    event.action,
+                )
+                continue
+
+            self._executed_load_event_keys.add(event_key)
+            if event.script:
+                _LOGGER.info(
+                    "Executing load plan script event: time=%s, device=%s, action=%s, script=%s",
+                    event.time,
+                    event.device,
+                    event.action,
+                    event.script,
+                )
+                await self.hass.services.async_call(
+                    "script",
+                    SERVICE_TURN_ON,
+                    {ATTR_ENTITY_ID: event.script},
+                    blocking=False,
+                )
+                executed_count += 1
+                continue
+
+            if event.entity_id:
+                service = SERVICE_TURN_ON if event.action == "turn_on" else SERVICE_TURN_OFF
+                _LOGGER.info(
+                    "Executing load plan entity event: time=%s, device=%s, action=%s, "
+                    "entity_id=%s",
+                    event.time,
+                    event.device,
+                    event.action,
+                    event.entity_id,
+                )
+                await self.hass.services.async_call(
+                    "homeassistant",
+                    service,
+                    {ATTR_ENTITY_ID: event.entity_id},
+                    blocking=False,
+                )
+                executed_count += 1
+                continue
+
+            _LOGGER.warning(
+                "Skipping load plan event without script or entity_id: time=%s, "
+                "device=%s, action=%s",
+                event.time,
+                event.device,
+                event.action,
+            )
+
+        _LOGGER.info("Due load event run finished: executed=%s", executed_count)
+        return executed_count
 
 
 def save_cached_forecast(path: Path, result: PvForecastResult) -> None:
@@ -363,6 +443,14 @@ def forecast_result_to_dict(result: PvForecastResult) -> dict[str, object]:
 def interpolate(start: float, end: float, factor: float) -> float:
     """Linearly interpolate between two values."""
     return start + (end - start) * factor
+
+
+def load_event_key(event: object) -> str:
+    """Return a stable in-memory key for a load plan event."""
+    return (
+        f"{event.time.isoformat()}|{event.device}|{event.action}|"
+        f"{event.entity_id or ''}|{event.script or ''}"
+    )
 
 
 def forecast_result_from_dict(payload: dict[str, object]) -> PvForecastResult:

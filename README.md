@@ -102,7 +102,7 @@ action:
 
 ## Dashboard
 
-To use the attributes of the forecast data you can use an apexchart which displays also the current pv generation:
+To use the attributes of the forecast data you can use an apexchart which displays the current PV generation, forecast curves, and planned load blocks:
 
 ```yaml
 type: custom:apexcharts-card
@@ -195,7 +195,7 @@ For local experiments, `PvForecastModel(..., backend="xgboost")` can use the opt
 
 `sensor.py` exposes the forecast power and safe forecast power sensors.
 
-`services.yaml` defines `pv_forecast_planner.update_forecast` and `pv_forecast_planner.update_load_plan`.
+`services.yaml` defines the forecast, load plan, and due event runner services.
 
 Root `brand/` contains the HACS repository brand icons.
 
@@ -229,13 +229,29 @@ base_load_w: 500
 loads:
   - name: Dishwasher
     entity_id: switch.dishwasher
+    turn_on_script: script.start_dishwasher
+    turn_off_script: script.stop_dishwasher
     power_w: 1200
     total_minutes: 90
     min_run_minutes: 90
     earliest_start: "09:00"
     latest_end: "18:00"
     priority: 1
+
+  - name: EV charger
+    turn_on_script: script.ev_charger_on
+    turn_off_script: script.ev_charger_off
+    power_w: 3000
+    total_minutes: 120
+    min_run_minutes: 60
+    earliest_start: "10:00"
+    latest_end: "17:00"
+    priority: 2
 ```
+
+Required fields per load: `name`, `power_w`, `total_minutes`, `min_run_minutes`, `earliest_start`, `latest_end`.
+Optional fields: `priority`, `entity_id`, `turn_on_script`, `turn_off_script`.
+`entity_id` is optional, so script-only loads are valid.
 
 Run forecast and load planning:
 
@@ -253,28 +269,32 @@ events: turn_on / turn_off events with time, device, entity_id and optional scri
 planned_load: 15-minute load curve for charts
 ```
 
-For automation, trigger every minute and execute due events from the `events` attribute. If an event has a script, call `script.turn_on`; otherwise call `homeassistant.turn_on` or `homeassistant.turn_off` for the configured `entity_id`.
+The dashboard example above shows `planned_load` as orange load blocks together with actual PV, forecast, and safe forecast.
 
-Example for one device:
+For automation, let the integration execute due events. If an event has a script, the script is called. Otherwise the configured `entity_id` is switched directly. Events without script and without `entity_id` are skipped and logged.
+
+Example morning plan update:
 
 ```yaml
-alias: Dishwasher load plan on
+alias: PV forecast and load plan
+trigger:
+  - platform: time
+    at: "06:00:00"
+action:
+  - service: pv_forecast_planner.update_forecast
+  - service: pv_forecast_planner.update_load_plan
+mode: single
+```
+
+Example event runner:
+
+```yaml
+alias: Run PV load plan events
 trigger:
   - platform: time_pattern
     minutes: "/1"
-condition:
-  - condition: template
-    value_template: >
-      {% set minute = now().strftime('%Y-%m-%dT%H:%M') %}
-      {{ (state_attr('sensor.pv_forecast_planner_load_plan', 'events') or [])
-        | selectattr('device', 'eq', 'Dishwasher')
-        | selectattr('action', 'eq', 'turn_on')
-        | selectattr('time', 'match', '^' ~ minute)
-        | list | count > 0 }}
 action:
-  - service: switch.turn_on
-    target:
-      entity_id: switch.dishwasher
+  - service: pv_forecast_planner.run_due_load_events
 mode: single
 ```
 
