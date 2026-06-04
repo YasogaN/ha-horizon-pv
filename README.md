@@ -10,7 +10,8 @@ Optional tools for SunnyPortal scraping, Open-Meteo training data, dataset creat
 
 [![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=wolpa29&repository=homeassistant-pv-forecast-planner&category=integration)
 
-The main sensor state is the predicted PV power for the current 15-minute slot in watts. A second sensor exposes the current safe forecast power. Each sensor has its own compact `forecast` attribute and it is replaced whenever a new forecast is calculated.
+The main sensor state is the predicted PV power for now in watts. A second sensor exposes the current safe forecast power. Each sensor has its own compact 15-minute `forecast` attribute and it is replaced whenever a new forecast is calculated.
+Between forecast updates, the sensor states are refreshed locally and linearly interpolated from the stored forecast curve.
 The last successful forecast is cached in `/config/pv_forecast_planner/` and restored after a restart or integration update if the weather API is temporarily unavailable.
 
 Entities:

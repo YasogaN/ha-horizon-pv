@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime
+from datetime import timedelta
 from functools import partial
 import json
 import logging
@@ -10,7 +12,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -33,6 +36,7 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 CACHE_DIR_NAME = "pv_forecast_planner"
+CURRENT_VALUE_REFRESH_INTERVAL = timedelta(minutes=1)
 
 
 class PvForecastCoordinator(DataUpdateCoordinator):
@@ -44,11 +48,40 @@ class PvForecastCoordinator(DataUpdateCoordinator):
         self.cache_path = Path(
             hass.config.path(CACHE_DIR_NAME, f"last_forecast_{entry.entry_id}.json")
         )
+        self._current_value_unsub = None
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
         )
+
+    @callback
+    def async_start_current_value_refresh(self) -> None:
+        """Start refreshing the current sensor value from the cached forecast."""
+        if self._current_value_unsub is not None:
+            return
+        self._current_value_unsub = async_track_time_interval(
+            self.hass,
+            self._async_handle_current_value_refresh,
+            CURRENT_VALUE_REFRESH_INTERVAL,
+        )
+        _LOGGER.info(
+            "Started PV current forecast value refresh: interval=%s",
+            CURRENT_VALUE_REFRESH_INTERVAL,
+        )
+
+    @callback
+    def async_stop_current_value_refresh(self) -> None:
+        """Stop refreshing the current sensor value."""
+        if self._current_value_unsub is None:
+            return
+        self._current_value_unsub()
+        self._current_value_unsub = None
+
+    @callback
+    def _async_handle_current_value_refresh(self, now: datetime) -> None:
+        """Refresh the current value from the stored forecast curve."""
+        self.async_refresh_current_value(now)
 
     async def async_load_cached_data(self) -> None:
         """Load the last successful forecast from disk."""
@@ -61,12 +94,115 @@ class PvForecastCoordinator(DataUpdateCoordinator):
             return
 
         self.async_set_updated_data(result)
+        self.async_refresh_current_value()
         _LOGGER.info(
             "Loaded cached PV forecast: path=%s, generated_at=%s, points=%s",
             self.cache_path,
             result.generated_at,
             len(result.forecast_points),
         )
+
+    @callback
+    def async_refresh_current_value(self, now: datetime | None = None) -> bool:
+        """Update current sensor values from the stored forecast points."""
+        data = self.data
+        if data is None or not data.forecast_points:
+            return False
+
+        current_time = (now or dt_util.now()).replace(
+            tzinfo=None,
+            second=0,
+            microsecond=0,
+        )
+        first_point = data.forecast_points[0]
+        last_point = data.forecast_points[-1]
+        if current_time < first_point.timestamp:
+            current_time = first_point.timestamp
+            current_power_w = first_point.pv_power_w
+            safe_current_power_w = first_point.safe_pv_power_w
+            next_index = 0
+        elif current_time > last_point.timestamp:
+            _LOGGER.debug(
+                "PV forecast current value refresh skipped because forecast is expired: "
+                "current_time=%s, last_point=%s, generated_at=%s",
+                current_time,
+                last_point.timestamp,
+                data.generated_at,
+            )
+            return False
+        else:
+            previous_point = first_point
+            next_point = first_point
+            next_index = 0
+            for index, point in enumerate(data.forecast_points):
+                if point.timestamp >= current_time:
+                    next_point = point
+                    next_index = index
+                    break
+                previous_point = point
+
+            if previous_point.timestamp == next_point.timestamp:
+                current_power_w = next_point.pv_power_w
+                safe_current_power_w = next_point.safe_pv_power_w
+            else:
+                interval_seconds = (
+                    next_point.timestamp - previous_point.timestamp
+                ).total_seconds()
+                elapsed_seconds = (
+                    current_time - previous_point.timestamp
+                ).total_seconds()
+                factor = elapsed_seconds / interval_seconds
+                current_power_w = interpolate(
+                    previous_point.pv_power_w,
+                    next_point.pv_power_w,
+                    factor,
+                )
+                safe_current_power_w = interpolate(
+                    previous_point.safe_pv_power_w,
+                    next_point.safe_pv_power_w,
+                    factor,
+                )
+
+        if (
+            current_time == data.current_slot
+            and round(current_power_w, 1) == round(data.current_power_w, 1)
+            and round(safe_current_power_w, 1) == round(data.safe_current_power_w, 1)
+        ):
+            return False
+
+        remaining_points = data.forecast_points[next_index:]
+        remaining_interval_hours = 0.0
+        if next_index < len(data.forecast_points):
+            next_timestamp = data.forecast_points[next_index].timestamp
+            if next_timestamp > current_time:
+                remaining_interval_hours = (
+                    next_timestamp - current_time
+                ).total_seconds() / 3600
+
+        refreshed = replace(
+            data,
+            current_slot=current_time,
+            current_power_w=current_power_w,
+            safe_current_power_w=safe_current_power_w,
+            total_energy_kwh=(
+                current_power_w * remaining_interval_hours / 1000
+                + sum(point.pv_energy_kwh for point in remaining_points)
+            ),
+            safe_total_energy_kwh=(
+                safe_current_power_w * remaining_interval_hours / 1000
+                + sum(point.safe_pv_energy_kwh for point in remaining_points)
+            ),
+        )
+        self.async_set_updated_data(refreshed)
+        _LOGGER.debug(
+            "PV current forecast value interpolated: current_time=%s, current_power_w=%.1f, "
+            "safe_current_power_w=%.1f, remaining_energy_kwh=%.3f",
+            refreshed.current_slot,
+            refreshed.current_power_w,
+            refreshed.safe_current_power_w,
+            refreshed.total_energy_kwh,
+        )
+        return True
 
     async def _async_update_data(self) -> PvForecastResult:
         """Fetch the latest PV forecast."""
@@ -176,6 +312,11 @@ def forecast_result_to_dict(result: PvForecastResult) -> dict[str, object]:
             for point in result.forecast_points
         ],
     }
+
+
+def interpolate(start: float, end: float, factor: float) -> float:
+    """Linearly interpolate between two values."""
+    return start + (end - start) * factor
 
 
 def forecast_result_from_dict(payload: dict[str, object]) -> PvForecastResult:
