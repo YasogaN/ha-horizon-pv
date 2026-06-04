@@ -19,7 +19,9 @@ from .const import (
     CONF_PANEL_AZIMUTH_DEG,
     CONF_PANEL_TILT_DEG,
     CONF_SECONDARY_FORECAST_MODEL,
+    CONF_SAFE_FORECAST_FACTOR,
     CONF_TIMEZONE,
+    DEFAULT_SAFE_FORECAST_FACTOR,
     DOMAIN,
 )
 
@@ -55,16 +57,20 @@ class PvForecastCoordinator(DataUpdateCoordinator):
             panel_azimuth_deg=float(settings[CONF_PANEL_AZIMUTH_DEG]),
             panel_tilt_deg=float(settings[CONF_PANEL_TILT_DEG]),
             forecast_days=int(settings[CONF_FORECAST_DAYS]),
+            safe_forecast_factor=float(
+                settings.get(CONF_SAFE_FORECAST_FACTOR, DEFAULT_SAFE_FORECAST_FACTOR)
+            ),
             secondary_forecast_model=str(settings[CONF_SECONDARY_FORECAST_MODEL]),
         )
         _LOGGER.info(
             "Starting PV forecast update: model_dir=%s, lat=%s, lon=%s, timezone=%s, "
-            "forecast_days=%s, secondary_model=%s",
+            "forecast_days=%s, safe_factor=%s, secondary_model=%s",
             config.model_dir,
             config.latitude,
             config.longitude,
             config.timezone,
             config.forecast_days,
+            config.safe_forecast_factor,
             config.secondary_forecast_model,
         )
         try:

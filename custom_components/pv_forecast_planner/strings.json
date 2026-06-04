@@ -14,6 +14,7 @@
           "panel_azimuth_deg": "Panel azimuth",
           "panel_tilt_deg": "Panel tilt",
           "forecast_days": "Forecast days",
+          "safe_forecast_factor": "Safe forecast factor",
           "secondary_forecast_model": "Secondary Open-Meteo model"
         }
       }
@@ -35,6 +36,7 @@
           "panel_azimuth_deg": "Panel azimuth",
           "panel_tilt_deg": "Panel tilt",
           "forecast_days": "Forecast days",
+          "safe_forecast_factor": "Safe forecast factor",
           "secondary_forecast_model": "Secondary Open-Meteo model"
         }
       }
@@ -44,6 +46,9 @@
     "sensor": {
       "forecast_power": {
         "name": "Forecast power"
+      },
+      "safe_forecast_power": {
+        "name": "Safe forecast power"
       }
     }
   }

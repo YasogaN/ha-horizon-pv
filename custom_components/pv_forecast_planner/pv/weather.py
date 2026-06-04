@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from time import perf_counter
 from datetime import datetime
 from urllib.parse import urlencode
 from urllib.request import urlopen
@@ -54,8 +55,17 @@ def fetch_json(endpoint: str, params: dict[str, object]) -> dict:
     """Fetch JSON from an HTTP endpoint."""
     url = endpoint + "?" + urlencode(params)
     _LOGGER.debug("Fetching Open-Meteo data from %s", url)
+    started = perf_counter()
     with urlopen(url, timeout=REQUEST_TIMEOUT_SECONDS) as response:
         payload = response.read().decode("utf-8")
+        status = getattr(response, "status", "unknown")
+
+    _LOGGER.info(
+        "Open-Meteo API response received: status=%s, bytes=%s, duration_s=%.2f",
+        status,
+        len(payload),
+        perf_counter() - started,
+    )
 
     return json.loads(payload)
 
@@ -88,10 +98,18 @@ def fetch_open_meteo_forecast(
     )
     data = fetch_json(OPEN_METEO_FORECAST_ENDPOINT, params)
     rows = parse_minutely_15_forecast(data)
+    first_timestamp = min(rows) if rows else None
+    last_timestamp = max(rows) if rows else None
+    sample = rows.get(first_timestamp, {}) if first_timestamp is not None else {}
     _LOGGER.info(
-        "Open-Meteo forecast loaded: model=%s, rows=%s",
+        "Open-Meteo forecast loaded: model=%s, rows=%s, first=%s, last=%s, "
+        "sample_shortwave=%s, sample_cloud_cover=%s",
         model or "default",
         len(rows),
+        first_timestamp,
+        last_timestamp,
+        sample.get("shortwave_radiation"),
+        sample.get("cloud_cover"),
     )
     return rows
 

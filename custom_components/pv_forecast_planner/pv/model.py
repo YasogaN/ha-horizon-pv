@@ -4,6 +4,7 @@ import json
 import logging
 import math
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
@@ -28,15 +29,17 @@ class PvForecastModel:
             self.model_dir,
             self.backend,
         )
+        started = perf_counter()
         self.load_metadata()
         self.load_model()
         _LOGGER.info(
             "PV forecast model loaded: backend=%s, features=%s, observed_peak_w=%s, "
-            "safe_factor=%s",
+            "safe_factor=%s, duration_s=%.2f",
             self.backend,
             len(self.feature_columns),
             self.observed_peak_w,
             self.safe_prediction_factor,
+            perf_counter() - started,
         )
 
     def load_metadata(self) -> None:
@@ -73,7 +76,14 @@ class PvForecastModel:
             len(feature_matrix),
             self.backend,
         )
+        started = perf_counter()
         predictions = self.model.predict(feature_matrix)
+        _LOGGER.info(
+            "Model prediction finished: backend=%s, rows=%s, duration_s=%.2f",
+            self.backend,
+            len(feature_matrix),
+            perf_counter() - started,
+        )
         return [max(0.0, float(value)) for value in predictions]
 
     @property

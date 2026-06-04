@@ -90,6 +90,7 @@ def main() -> None:
             panel_azimuth_deg=PANEL_AZIMUTH_DEG,
             panel_tilt_deg=PANEL_TILT_DEG,
             forecast_days=1,
+            safe_forecast_factor=0.9,
             secondary_forecast_model="icon_eu",
         ),
         now=datetime.now(),

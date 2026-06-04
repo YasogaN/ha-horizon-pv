@@ -7,6 +7,7 @@ from datetime import datetime
 from functools import lru_cache
 import logging
 from pathlib import Path
+from time import perf_counter
 
 from .features import build_feature_matrix, build_feature_rows
 from .model import PvForecastModel
@@ -59,6 +60,7 @@ class PvForecastConfig:
     panel_azimuth_deg: float
     panel_tilt_deg: float
     forecast_days: int
+    safe_forecast_factor: float | None
     secondary_forecast_model: str
 
 
@@ -68,6 +70,7 @@ def create_pv_forecast(
     now: datetime,
 ) -> PvForecastResult:
     """Create a PV forecast from Open-Meteo data and the configured model."""
+    started = perf_counter()
     current_slot = floor_to_interval(now.replace(tzinfo=None), INTERVAL_MINUTES)
     _LOGGER.info("Creating PV forecast for current_slot=%s", current_slot)
     model = get_model(str(Path(config.model_dir)))
@@ -101,7 +104,15 @@ def create_pv_forecast(
         panel_azimuth_deg=config.panel_azimuth_deg,
         panel_tilt_deg=config.panel_tilt_deg,
     )
-    _LOGGER.info("Built PV feature rows: rows=%s", len(rows))
+    if rows:
+        _LOGGER.info(
+            "Built PV feature rows: rows=%s, first=%s, last=%s",
+            len(rows),
+            rows[0]["_timestamp"],
+            rows[-1]["_timestamp"],
+        )
+    else:
+        _LOGGER.info("Built PV feature rows: rows=0")
     feature_matrix = build_feature_matrix(rows, model.feature_columns)
     _LOGGER.info(
         "Built PV feature matrix: rows=%s, columns=%s",
@@ -109,14 +120,22 @@ def create_pv_forecast(
         len(model.feature_columns),
     )
     predictions = model.predict(feature_matrix)
-    safe_factor = model.safe_prediction_factor
+    safe_factor = (
+        model.safe_prediction_factor
+        if config.safe_forecast_factor is None
+        else config.safe_forecast_factor
+    )
+    _LOGGER.info("Using safe_forecast_factor=%s", safe_factor)
     safe_predictions = [prediction * safe_factor for prediction in predictions]
     if predictions:
         _LOGGER.info(
-            "PV model predictions created: rows=%s, min_w=%.1f, max_w=%.1f",
+            "PV model predictions created: rows=%s, min_w=%.1f, max_w=%.1f, "
+            "first_w=%.1f, last_w=%.1f",
             len(predictions),
             min(predictions),
             max(predictions),
+            predictions[0],
+            predictions[-1],
         )
 
     points = tuple(
@@ -138,7 +157,7 @@ def create_pv_forecast(
         key=lambda point: abs(point.timestamp - current_slot),
     )
 
-    return PvForecastResult(
+    result = PvForecastResult(
         generated_at=now,
         current_slot=current_point.timestamp,
         current_power_w=current_point.pv_power_w,
@@ -147,6 +166,16 @@ def create_pv_forecast(
         safe_total_energy_kwh=sum(point.safe_pv_energy_kwh for point in points),
         forecast_points=points,
     )
+    _LOGGER.info(
+        "PV forecast created: current_power_w=%.1f, safe_current_power_w=%.1f, "
+        "total_energy_kwh=%.3f, safe_total_energy_kwh=%.3f, duration_s=%.2f",
+        result.current_power_w,
+        result.safe_current_power_w,
+        result.total_energy_kwh,
+        result.safe_total_energy_kwh,
+        perf_counter() - started,
+    )
+    return result
 
 
 def floor_to_interval(value: datetime, interval_minutes: int) -> datetime:

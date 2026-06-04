@@ -16,12 +16,14 @@ from .const import (
     CONF_PANEL_AZIMUTH_DEG,
     CONF_PANEL_TILT_DEG,
     CONF_SECONDARY_FORECAST_MODEL,
+    CONF_SAFE_FORECAST_FACTOR,
     CONF_TIMEZONE,
     DEFAULT_FORECAST_DAYS,
     DEFAULT_MODEL_DIR,
     DEFAULT_NAME,
     DEFAULT_PANEL_AZIMUTH_DEG,
     DEFAULT_PANEL_TILT_DEG,
+    DEFAULT_SAFE_FORECAST_FACTOR,
     DEFAULT_SECONDARY_FORECAST_MODEL,
     DOMAIN,
 )
@@ -64,6 +66,7 @@ class PvForecastPlannerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_PANEL_AZIMUTH_DEG: DEFAULT_PANEL_AZIMUTH_DEG,
             CONF_PANEL_TILT_DEG: DEFAULT_PANEL_TILT_DEG,
             CONF_FORECAST_DAYS: DEFAULT_FORECAST_DAYS,
+            CONF_SAFE_FORECAST_FACTOR: DEFAULT_SAFE_FORECAST_FACTOR,
             CONF_SECONDARY_FORECAST_MODEL: DEFAULT_SECONDARY_FORECAST_MODEL,
         }
 
@@ -126,6 +129,13 @@ def _schema(defaults: dict[str, object], *, include_name: bool) -> vol.Schema:
                 CONF_FORECAST_DAYS,
                 default=defaults[CONF_FORECAST_DAYS],
             ): vol.All(vol.Coerce(int), vol.Range(min=1, max=7)),
+            vol.Required(
+                CONF_SAFE_FORECAST_FACTOR,
+                default=defaults.get(
+                    CONF_SAFE_FORECAST_FACTOR,
+                    DEFAULT_SAFE_FORECAST_FACTOR,
+                ),
+            ): vol.All(vol.Coerce(float), vol.Range(min=0, max=1)),
             vol.Required(
                 CONF_SECONDARY_FORECAST_MODEL,
                 default=defaults[CONF_SECONDARY_FORECAST_MODEL],
