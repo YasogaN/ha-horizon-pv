@@ -30,7 +30,6 @@ FEATURE_COLUMNS = [
     "cloud_cover_high",
 ]
 
-MODEL_STATE_PATH = Path("/config/horizon/model_state.json")
 SCHEMA_VERSION = 1
 
 
@@ -124,8 +123,11 @@ class DailyLearner:
             _LOGGER.exception("Failed to query recorder: %s", err)
             return []
 
+    def _state_path(self) -> Path:
+        return Path(self.hass.config.path("horizon", "model_state.json"))
+
     def load_state(self) -> None:
-        path = Path(MODEL_STATE_PATH)
+        path = self._state_path()
         if not path.exists():
             _LOGGER.info("No model state file at %s, starting fresh", path)
             return
@@ -145,7 +147,7 @@ class DailyLearner:
             _LOGGER.exception("Failed to load model state: %s", err)
 
     def save_state(self) -> None:
-        path = Path(MODEL_STATE_PATH)
+        path = self._state_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         data = {
             "schema_version": SCHEMA_VERSION,
