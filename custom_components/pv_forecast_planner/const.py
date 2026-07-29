@@ -1,27 +1,27 @@
-"""Constants for PV Forecast Planner."""
-
 from __future__ import annotations
 
-DOMAIN = "pv_forecast_planner"
+DOMAIN = "horizon"
 
-DEFAULT_NAME = "PV Forecast Planner"
-DEFAULT_MODEL_DIR = "/config/pv_forecast_planner/models/default"
-DEFAULT_PANEL_AZIMUTH_DEG = 350.0
-DEFAULT_PANEL_TILT_DEG = 45.0
+DEFAULT_NAME = "Horizon"
+DEFAULT_PANEL_AZIMUTH_DEG = 180.0
+DEFAULT_PANEL_TILT_DEG = 35.0
 DEFAULT_FORECAST_DAYS = 2
-DEFAULT_SAFE_FORECAST_FACTOR = 0.9
-DEFAULT_SECONDARY_FORECAST_MODEL = "icon_eu"
+DEFAULT_BOOTSTRAP_DAYS = 7
+DEFAULT_LEARNING_RATE = 0.01
+DEFAULT_COLD_START_CLOUD_FACTOR = 0.6
 
-CONF_FORECAST_DAYS = "forecast_days"
+CONF_PV_SENSOR_ENTITY = "pv_sensor_entity"
+CONF_PV_ENERGY_SENSOR_ENTITY = "pv_energy_sensor_entity"
+CONF_BOOTSTRAP_DAYS = "bootstrap_days"
+CONF_INITIAL_PEAK_POWER_W = "initial_peak_power_w"
 CONF_LATITUDE = "latitude"
 CONF_LONGITUDE = "longitude"
-CONF_MODEL_DIR = "model_dir"
+CONF_TIMEZONE = "timezone"
 CONF_PANEL_AZIMUTH_DEG = "panel_azimuth_deg"
 CONF_PANEL_TILT_DEG = "panel_tilt_deg"
-CONF_SECONDARY_FORECAST_MODEL = "secondary_forecast_model"
-CONF_SAFE_FORECAST_FACTOR = "safe_forecast_factor"
-CONF_TIMEZONE = "timezone"
+CONF_FORECAST_DAYS = "forecast_days"
 
 SERVICE_UPDATE_FORECAST = "update_forecast"
-SERVICE_UPDATE_LOAD_PLAN = "update_load_plan"
-SERVICE_RUN_DUE_LOAD_EVENTS = "run_due_load_events"
+SERVICE_LEARN = "learn"
+SERVICE_BOOTSTRAP = "bootstrap"
+SERVICE_GET_STATE = "get_state"

@@ -1,18 +1,18 @@
-"""PV Forecast Planner integration."""
-
 from __future__ import annotations
 
 import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse
 
 from .const import (
+    CONF_BOOTSTRAP_DAYS,
     DOMAIN,
-    SERVICE_RUN_DUE_LOAD_EVENTS,
+    SERVICE_BOOTSTRAP,
+    SERVICE_GET_STATE,
+    SERVICE_LEARN,
     SERVICE_UPDATE_FORECAST,
-    SERVICE_UPDATE_LOAD_PLAN,
 )
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
@@ -20,89 +20,73 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up PV Forecast Planner from a config entry."""
-    from .coordinator import PvForecastCoordinator
+    from .coordinator import HorizonCoordinator
 
-    _LOGGER.info("Setting up PV Forecast Planner entry %s", entry.entry_id)
-    coordinator = PvForecastCoordinator(hass, entry)
+    _LOGGER.info("Setting up Horizon entry %s", entry.entry_id)
+    coordinator = HorizonCoordinator(hass, entry)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+    coordinator.load_state()
     await coordinator.async_load_cached_data()
     coordinator.async_start_current_value_refresh()
     entry.async_on_unload(coordinator.async_stop_current_value_refresh)
     entry.async_on_unload(entry.add_update_listener(_async_update_options))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    async def handle_update_forecast(call: ServiceCall) -> None:
+        for item in hass.data.get(DOMAIN, {}).values():
+            await item.async_request_refresh()
+
+    async def handle_learn(call: ServiceCall) -> None:
+        for item in hass.data.get(DOMAIN, {}).values():
+            await item.async_learn()
+
+    async def handle_bootstrap(call: ServiceCall) -> None:
+        days = call.data.get("days")
+        for item in hass.data.get(DOMAIN, {}).values():
+            await item.async_bootstrap(days=days)
+
+    async def handle_get_state(call: ServiceCall) -> ServiceResponse:
+        results = {}
+        for entry_id, item in hass.data.get(DOMAIN, {}).items():
+            results[entry_id] = item.get_state()
+        return results
+
     if not hass.services.has_service(DOMAIN, SERVICE_UPDATE_FORECAST):
-
-        async def handle_update_forecast(call: ServiceCall) -> None:
-            """Refresh all configured PV forecast coordinators."""
-            _LOGGER.info("PV forecast update service called")
-            for item in hass.data.get(DOMAIN, {}).values():
-                await item.async_request_refresh()
-                _LOGGER.info(
-                    "PV forecast update finished, success=%s",
-                    item.last_update_success,
-                )
-
         hass.services.async_register(
-            DOMAIN,
-            SERVICE_UPDATE_FORECAST,
-            handle_update_forecast,
+            DOMAIN, SERVICE_UPDATE_FORECAST, handle_update_forecast,
         )
-
-    if not hass.services.has_service(DOMAIN, SERVICE_UPDATE_LOAD_PLAN):
-
-        async def handle_update_load_plan(call: ServiceCall) -> None:
-            """Refresh load plans for all configured coordinators."""
-            _LOGGER.info("Load plan update service called")
-            for item in hass.data.get(DOMAIN, {}).values():
-                await item.async_update_load_plan()
-                _LOGGER.info("Load plan update finished")
-
+    if not hass.services.has_service(DOMAIN, SERVICE_LEARN):
         hass.services.async_register(
-            DOMAIN,
-            SERVICE_UPDATE_LOAD_PLAN,
-            handle_update_load_plan,
+            DOMAIN, SERVICE_LEARN, handle_learn,
         )
-
-    if not hass.services.has_service(DOMAIN, SERVICE_RUN_DUE_LOAD_EVENTS):
-
-        async def handle_run_due_load_events(call: ServiceCall) -> None:
-            """Run due load plan events for all configured coordinators."""
-            _LOGGER.info("Run due load events service called")
-            total_executed = 0
-            for item in hass.data.get(DOMAIN, {}).values():
-                total_executed += await item.async_run_due_load_events()
-            _LOGGER.info(
-                "Run due load events service finished: executed=%s",
-                total_executed,
-            )
-
+    if not hass.services.has_service(DOMAIN, SERVICE_BOOTSTRAP):
         hass.services.async_register(
-            DOMAIN,
-            SERVICE_RUN_DUE_LOAD_EVENTS,
-            handle_run_due_load_events,
+            DOMAIN, SERVICE_BOOTSTRAP, handle_bootstrap,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_GET_STATE):
+        hass.services.async_register(
+            DOMAIN, SERVICE_GET_STATE, handle_get_state,
         )
 
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok and DOMAIN in hass.data:
         hass.data[DOMAIN].pop(entry.entry_id)
         if not hass.data[DOMAIN]:
             hass.data.pop(DOMAIN)
-            if hass.services.has_service(DOMAIN, SERVICE_UPDATE_FORECAST):
-                hass.services.async_remove(DOMAIN, SERVICE_UPDATE_FORECAST)
-            if hass.services.has_service(DOMAIN, SERVICE_UPDATE_LOAD_PLAN):
-                hass.services.async_remove(DOMAIN, SERVICE_UPDATE_LOAD_PLAN)
-            if hass.services.has_service(DOMAIN, SERVICE_RUN_DUE_LOAD_EVENTS):
-                hass.services.async_remove(DOMAIN, SERVICE_RUN_DUE_LOAD_EVENTS)
+            for service in [
+                SERVICE_UPDATE_FORECAST,
+                SERVICE_LEARN,
+                SERVICE_BOOTSTRAP,
+                SERVICE_GET_STATE,
+            ]:
+                if hass.services.has_service(DOMAIN, service):
+                    hass.services.async_remove(DOMAIN, service)
     return unload_ok
 
 
 async def _async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Reload the config entry when options change."""
     await hass.config_entries.async_reload(entry.entry_id)
