@@ -77,6 +77,8 @@ class HorizonCoordinator(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name=DOMAIN,
+            config_entry=entry,
+            always_update=False,
         )
 
     def _resolve_peak_w(self) -> float:
