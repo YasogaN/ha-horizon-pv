@@ -1,11 +1,26 @@
 update_forecast:
   name: Update forecast
-  description: Fetch weather data and recalculate the PV forecast now.
+  description: Fetch weather data and recalculate the solar forecast now.
 
-update_load_plan:
-  name: Update load plan
-  description: Recalculate the basic load plan from the stored PV forecast and loads.yaml.
+learn:
+  name: Learn
+  description: Train the model on yesterday's actual production data from the recorder.
 
-run_due_load_events:
-  name: Run due load events
-  description: Execute due load plan events using configured scripts or entity IDs.
+bootstrap:
+  name: Bootstrap
+  description: Scan recorder history and train the model on historical data.
+  fields:
+    days:
+      name: Days
+      description: Number of historical days to scan (default from config).
+      required: false
+      default: 7
+      selector:
+        number:
+          min: 1
+          max: 90
+          unit_of_measurement: days
+
+get_state:
+  name: Get state
+  description: Return the current model state as a service response.

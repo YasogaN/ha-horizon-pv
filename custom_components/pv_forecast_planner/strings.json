@@ -1,43 +1,44 @@
 {
-  "title": "PV Forecast Planner",
+  "title": "Horizon Solar Forecast",
   "config": {
     "step": {
       "user": {
-        "title": "Set up PV Forecast Planner",
-        "description": "Configure the trained model and PV system location.",
+        "title": "Set up Horizon Solar Forecast",
+        "description": "Configure your PV system location and panel parameters.",
         "data": {
           "name": "Name",
-          "model_dir": "Model directory",
+          "pv_sensor_entity": "PV power sensor",
+          "pv_energy_sensor_entity": "PV daily energy sensor",
           "latitude": "Latitude",
           "longitude": "Longitude",
           "timezone": "Timezone",
           "panel_azimuth_deg": "Panel azimuth",
           "panel_tilt_deg": "Panel tilt",
-          "forecast_days": "Forecast days",
-          "safe_forecast_factor": "Safe forecast factor",
-          "secondary_forecast_model": "Secondary Open-Meteo model"
+          "initial_peak_power_w": "Initial peak power (W)",
+          "bootstrap_days": "Bootstrap days",
+          "forecast_days": "Forecast days"
         }
       }
     },
     "abort": {
-      "already_configured": "PV Forecast Planner is already configured"
+      "already_configured": "Horizon is already configured"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "PV Forecast Planner options",
-        "description": "Change the trained model and PV system settings.",
+        "title": "Horizon Solar Forecast options",
+        "description": "Change PV system settings.",
         "data": {
-          "model_dir": "Model directory",
+          "pv_sensor_entity": "PV power sensor",
+          "pv_energy_sensor_entity": "PV daily energy sensor",
           "latitude": "Latitude",
           "longitude": "Longitude",
           "timezone": "Timezone",
           "panel_azimuth_deg": "Panel azimuth",
           "panel_tilt_deg": "Panel tilt",
-          "forecast_days": "Forecast days",
-          "safe_forecast_factor": "Safe forecast factor",
-          "secondary_forecast_model": "Secondary Open-Meteo model"
+          "initial_peak_power_w": "Initial peak power (W)",
+          "forecast_days": "Forecast days"
         }
       }
     }
@@ -47,8 +48,11 @@
       "forecast_power": {
         "name": "Forecast power"
       },
-      "safe_forecast_power": {
-        "name": "Safe forecast power"
+      "training_days": {
+        "name": "Training days"
+      },
+      "model_diagnostics": {
+        "name": "Model diagnostics"
       }
     }
   }
