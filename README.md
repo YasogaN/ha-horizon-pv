@@ -97,34 +97,15 @@ All fields are configured via the Home Assistant UI (Settings → Devices & Serv
 
 ## How It Works
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                  HORIZON INTEGRATION                     │
-│                                                         │
-│  ┌──────────────────┐   ┌──────────────────────────┐   │
-│  │  FORECAST ENGINE  │   │  LEARNING ENGINE          │   │
-│  │  (on trigger)    │   │  (daily at 06:00)         │   │
-│  │                   │   │                           │   │
-│  │  Open-Meteo ──►  │   │  Recorder ──► yesterday's │   │
-│  │  Physics ──► SGD │   │  actuals + weather ──►   │   │
-│  │  Sensor output   │   │  SGD.partial_fit()        │   │
-│  └──────────────────┘   └──────────────────────────┘   │
-│                                                         │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │  COLD START (active < 3 training days)          │   │
-│  │  prediction = peak × clamp(ghi/1000,0,1.15)    │   │
-│  │              × (1 - 0.6 × cloud_cover/100)     │   │
-│  └─────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-```
+![Architecture Diagram](https://s6.imgcdn.dev/YHdqrh.png)
 
-### Prediction Modes
+### Prediction Lifecycle
 
-| Mode           | Condition         | Blend                 |
-| -------------- | ----------------- | --------------------- |
-| `cold_start`   | training_days < 3 | 100% physics formula  |
-| `transition`   | 3–13 days         | 50% SGD + 50% physics |
-| `steady_state` | 14+ days          | 80% SGD + 20% physics |
+| Mode             | Condition         | Blend                 |
+| ---------------- | ----------------- | --------------------- |
+| Cold Start       | training_days < 3 | 100% physics formula  |
+| Transition Phase | 3–13 days         | 50% SGD + 50% physics |
+| Steady State     | 14+ days          | 80% SGD + 20% physics |
 
 ### Features (12)
 
