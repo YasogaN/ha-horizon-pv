@@ -9,12 +9,3 @@ venv/
 
 .env
 .DS_Store
-
-tools/data/**
-!tools/data/**/
-!tools/data/**/.gitkeep
-tools/models/
-tools/venv/
-tools/.venv/
-tools/__pycache__/
-tools/**/__pycache__/
