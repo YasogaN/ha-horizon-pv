@@ -4,7 +4,7 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse
+from homeassistant.core import HomeAssistant, ServiceCall
 
 from .const import (
     CONF_BOOTSTRAP_DAYS,
@@ -45,7 +45,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         for item in hass.data.get(DOMAIN, {}).values():
             await item.async_bootstrap(days=days)
 
-    async def handle_get_state(call: ServiceCall) -> ServiceResponse:
+    async def handle_get_state(call: ServiceCall) -> dict:
+        from homeassistant.core import ServiceResponse
         results = {}
         for entry_id, item in hass.data.get(DOMAIN, {}).items():
             results[entry_id] = item.get_state()
