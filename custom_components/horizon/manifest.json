@@ -1,14 +1,20 @@
 {
   "domain": "horizon",
   "name": "Horizon Solar Forecast",
-  "after_dependencies": ["recorder"],
-  "codeowners": ["@wolpa29"],
+  "after_dependencies": [
+    "recorder"
+  ],
+  "codeowners": [
+    "@YasogaN"
+  ],
   "config_flow": true,
-  "dependencies": ["recorder"],
-  "documentation": "https://github.com/wolpa29/homeassistant-pv-forecast-planner",
+  "dependencies": [
+    "recorder"
+  ],
+  "documentation": "https://github.com/YasogaN/ha-horizon-pv",
   "integration_type": "service",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/wolpa29/homeassistant-pv-forecast-planner/issues",
+  "issue_tracker": "https://github.com/YasogaN/ha-horizon-pv/issues",
   "requirements": [],
-  "version": "0.3.0"
+  "version": "0.1.0"
 }
